@@ -7,7 +7,8 @@ import {
   UserButton,
   useAuth,
 } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { Bot, Send, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
@@ -22,6 +23,11 @@ export default function LandingPage() {
   const [connectError, setConnectError] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState<
+    { id: string; role: "user" | "assistant"; content: string; timestamp: Date }[]
+  >([]);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -70,6 +76,10 @@ export default function LandingPage() {
       isActive = false;
     };
   }, [getToken, isSignedIn]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleDisconnect = async () => {
     try {
@@ -132,6 +142,23 @@ export default function LandingPage() {
     }
   };
 
+  const handleChatSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "user",
+        content: trimmed,
+        timestamp: new Date(),
+      },
+    ]);
+    setChatInput("");
+  };
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e2e8f0_0%,_#f8fafc_35%,_#f1f5f9_100%)] text-slate-900">
       <nav className="flex w-full items-center justify-end border-b border-slate-200 bg-white/70 px-6 py-4 backdrop-blur">
@@ -188,21 +215,133 @@ export default function LandingPage() {
               </button>
             </div>
 
-            <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
+            <div
+              className={`mt-10 rounded-2xl border ${
+                isConnected && activeTab === "sql"
+                  ? "border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm"
+                  : "border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center"
+              }`}>
               {isConnected ? (
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  className="rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  Logout
-                </button>
+                activeTab === "sql" ? (
+                  <div className="flex flex-col gap-6">
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        SQL Chatbot
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Ask questions about your connected Supabase database.
+                      </p>
+                    </div>
+                    <div className="flex min-h-[360px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {messages.length === 0 && (
+                          <div className="text-center text-slate-400 mt-8">
+                            <Bot className="mx-auto mb-3 h-12 w-12 text-slate-400" />
+                            <p>Hello! I&apos;m your SQL assistant.</p>
+                            <p className="mt-2 text-sm">
+                              Ask me about your tables, metrics, or trends.
+                            </p>
+                          </div>
+                        )}
+
+                        {messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`flex gap-3 ${
+                              message.role === "user"
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}>
+                            {message.role === "assistant" && (
+                              <div className="flex-shrink-0">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900">
+                                  <Bot className="h-5 w-5 text-white" />
+                                </div>
+                              </div>
+                            )}
+
+                            <div
+                              className={`max-w-[70%] rounded-lg p-3 text-sm ${
+                                message.role === "user"
+                                  ? "bg-slate-900 text-white"
+                                  : "border border-slate-200 bg-white text-slate-800"
+                              }`}>
+                              <p className="whitespace-pre-wrap">
+                                {message.content}
+                              </p>
+                              <p
+                                className={`mt-1 text-xs ${
+                                  message.role === "user"
+                                    ? "text-slate-300"
+                                    : "text-slate-400"
+                                }`}
+                              >
+                                {message.timestamp.toLocaleTimeString()}
+                              </p>
+                            </div>
+
+                            {message.role === "user" && (
+                              <div className="flex-shrink-0">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600">
+                                  <User className="h-5 w-5 text-white" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        <div ref={messagesEndRef} />
+                      </div>
+
+                      <form
+                        onSubmit={handleChatSubmit}
+                        className="border-t border-slate-200 bg-slate-50 p-4">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={chatInput}
+                            onChange={(event) =>
+                              setChatInput(event.target.value)
+                            }
+                            placeholder="Ask a SQL question..."
+                            className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!chatInput.trim()}
+                            className="rounded-lg bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                            aria-label="Send message"
+                          >
+                            <Send className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDisconnect}
+                      className="w-fit rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    Logout
+                  </button>
+                )
               ) : (
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
                   className="inline-flex h-20 w-20 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-5xl font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                  aria-label={`Open ${activeTab === "sql" ? "SQL" : "Analytics"} connection modal`}
+                  aria-label={`Open ${
+                    activeTab === "sql" ? "SQL" : "Analytics"
+                  } connection modal`}
                 >
                   +
                 </button>
