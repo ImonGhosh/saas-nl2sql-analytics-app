@@ -4,5 +4,6 @@ openai
 python-dotenv
 python-multipart
 fastapi-clerk-auth
-cryptography
-psycopg[binary]
+httpx
+mcp
+mcp

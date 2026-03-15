@@ -8,6 +8,7 @@ import {
   useAuth,
 } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import SqlChatbot from "./SqlChatbot";
 
 const backendUrl =
@@ -15,10 +16,10 @@ const backendUrl =
 
 export default function LandingPage() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"sql" | "analytics">("sql");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [connectionString, setConnectionString] = useState("");
+  const [projectRef, setProjectRef] = useState("");
   const [connectStatus, setConnectStatus] = useState("");
   const [connectError, setConnectError] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
@@ -27,10 +28,29 @@ export default function LandingPage() {
 
   const closeModal = () => {
     setIsModalOpen(false);
-    setIsInfoOpen(false);
     setConnectError("");
     setConnectStatus("");
+    setProjectRef("");
   };
+
+  useEffect(() => {
+    const status = searchParams.get("mcp");
+    if (status !== "ready") return;
+
+    setIsModalOpen(true);
+    setConnectStatus("Ready");
+    setConnectError("");
+    setIsConnecting(false);
+
+    const timer = window.setTimeout(() => {
+      closeModal();
+      const url = new URL(window.location.href);
+      url.searchParams.delete("mcp");
+      window.history.replaceState({}, "", url.toString());
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [searchParams]);
 
   useEffect(() => {
     let isActive = true;
@@ -61,7 +81,7 @@ export default function LandingPage() {
           return;
         }
 
-        const response = await fetch(`${backendUrl}/db/status`, {
+        const response = await fetch(`${backendUrl}/mcp/status`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -95,7 +115,7 @@ export default function LandingPage() {
         return;
       }
 
-      await fetch(`${backendUrl}/db/disconnect`, {
+      await fetch(`${backendUrl}/mcp/disconnect`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -107,7 +127,7 @@ export default function LandingPage() {
   };
 
   const handleConnect = async () => {
-    if (!connectionString.trim() || isConnecting) return;
+    if (!projectRef.trim() || isConnecting) return;
     setIsConnecting(true);
     setConnectStatus("");
     setConnectError("");
@@ -119,30 +139,31 @@ export default function LandingPage() {
         return;
       }
 
-      const response = await fetch(`${backendUrl}/db/connect`, {
+      setConnectStatus("Authorizing...");
+      const response = await fetch(`${backendUrl}/mcp/auth/start`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          connection_string: connectionString.trim(),
+          project_ref: projectRef.trim(),
         }),
       });
 
-      const text = await response.text();
+      const data = (await response.json()) as { auth_url?: string; detail?: string };
       if (!response.ok) {
-        throw new Error(text || `Request failed (${response.status})`);
+        throw new Error(data.detail || `Request failed (${response.status})`);
       }
 
-      setConnectStatus(text);
-      setIsConnected(true);
-      setTimeout(() => {
-        closeModal();
-      }, 800);
+      if (!data.auth_url) {
+        throw new Error("Missing authorization URL.");
+      }
+
+      window.location.assign(data.auth_url);
     } catch (error) {
       setConnectError(
-        error instanceof Error ? error.message : "Connection failed."
+        error instanceof Error ? error.message : "Authorization failed."
       );
     } finally {
       setIsConnecting(false);
@@ -254,77 +275,28 @@ export default function LandingPage() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
           role="dialog"
-          aria-modal="true"
-        >
+          aria-modal="true">
           <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 text-left shadow-xl">
             <h2 className="text-xl font-semibold text-slate-900">
               Connect to Supabase
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              Paste your Postgres connection string below.
+              Enter your project ref and authorize access.
             </p>
             <label className="mt-4 block text-sm font-semibold text-slate-700">
-              Connection string
+              Project ref
               <input
-                type="password"
-                placeholder="postgresql://user.project_ref:password@host:6543/postgres"
-                value={connectionString}
-                onChange={(event) => setConnectionString(event.target.value)}
+                type="text"
+                placeholder="your-project-ref"
+                value={projectRef}
+                onChange={(event) => setProjectRef(event.target.value)}
                 className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
               />
             </label>
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              <p className="font-semibold text-slate-800">Where to find it</p>
-              <p className="mt-1">
-                Supabase Dashboard → your project → Connect →
-                Connection string (use Transaction Pooler connection string).
-              </p>
-              <p className="mt-3 font-semibold text-slate-800">Precautions</p>
-              <div className="relative mt-1 flex items-center gap-2">
-                <p>
-                  Use a least-privileged database user (read-only if possible)
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsInfoOpen((prev) => !prev)}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-                  aria-label="Show SQL script for read-only user"
-                >
-                  i
-                </button>
-                {isInfoOpen && (
-                  <div className="absolute left-0 top-full z-10 mt-2 w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 text-left text-xs text-slate-700 shadow-md max-h-[60vh] overflow-auto md:left-full md:top-1/2 md:mt-0 md:ml-3 md:w-80 md:-translate-y-1/2">
-                    <p className="text-sm font-semibold text-slate-800">
-                      SQL Script (Read-Only User)
-                    </p>
-                    <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-700">
-                        {`-- 1) Create a login role
-                        create role app_readonly login password 'REPLACE_WITH_STRONG_PASSWORD';
+            <p className="mt-2 text-xs text-slate-500">
+              Find your project ref in Supabase Dashboard -&gt; Settings -&gt; General.
+            </p>
 
-                        -- 2) Allow connection to your database (usually "postgres")
-                        grant connect on database postgres to app_readonly;
-
-                        -- 3) Allow usage on schema (typically "public")
-                        grant usage on schema public to app_readonly;
-
-                        -- 4) Grant read access to existing tables/views
-                        grant select on all tables in schema public to app_readonly;
-
-                        -- 5) Ensure future tables are read-only by default
-                        alter default privileges in schema public
-                        grant select on tables to app_readonly;`}
-                    </pre>
-                  </div>
-                )}
-              </div>
-              <p className="mt-2">
-                If you have network restrictions enabled, allow the backend IP
-                so the app can reach your database.
-              </p>
-              <p className="mt-2">
-                Rotate credentials if you revoke access.
-              </p>
-            </div>
             {connectError && (
               <p className="mt-4 text-sm font-semibold text-red-600">
                 {connectError}
@@ -340,10 +312,10 @@ export default function LandingPage() {
               <button
                 type="button"
                 onClick={handleConnect}
-                disabled={!connectionString.trim() || isConnecting}
+                disabled={!projectRef.trim() || isConnecting}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {isConnecting ? "Connecting..." : "Connect"}
+                {isConnecting ? "Authorizing..." : "Authorize with Supabase"}
               </button>
               <button
                 type="button"
