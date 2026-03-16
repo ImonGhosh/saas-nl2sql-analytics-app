@@ -296,6 +296,8 @@ def _build_mcp_url(project_ref: str) -> str:
     return f"{template}{separator}project_ref={project_ref}"
 
 
+
+
 def _parse_schema_filter() -> List[str]:
     if MCP_SCHEMAS.strip():
         raw = MCP_SCHEMAS
@@ -738,6 +740,33 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     where tc.table_schema not in ('pg_catalog', 'information_schema')
                       {schema_filter};
                 """.format(schema_filter=tc_schema_filter)
+                fallback_fk_sql = """
+                    select
+                        n.nspname as table_schema,
+                        cl.relname as table_name,
+                        con.conname as constraint_name,
+                        'FOREIGN KEY' as constraint_type,
+                        a.attname as column_name,
+                        conkey.ord as ordinal_position,
+                        nf.nspname as foreign_table_schema,
+                        clf.relname as foreign_table_name,
+                        af.attname as foreign_column_name
+                    from pg_catalog.pg_constraint con
+                    join pg_catalog.pg_class cl on cl.oid = con.conrelid
+                    join pg_catalog.pg_namespace n on n.oid = cl.relnamespace
+                    join pg_catalog.pg_class clf on clf.oid = con.confrelid
+                    join pg_catalog.pg_namespace nf on nf.oid = clf.relnamespace
+                    join unnest(con.conkey) with ordinality as conkey(attnum, ord) on true
+                    join pg_catalog.pg_attribute a
+                        on a.attrelid = con.conrelid and a.attnum = conkey.attnum
+                    join unnest(con.confkey) with ordinality as confkey(attnum, ord)
+                        on confkey.ord = conkey.ord
+                    join pg_catalog.pg_attribute af
+                        on af.attrelid = con.confrelid and af.attnum = confkey.attnum
+                    where con.contype = 'f'
+                      and n.nspname not in ('pg_catalog', 'information_schema')
+                      {ns_filter};
+                """.format(ns_filter=ns_filter)
                 table_comments_sql = """
                     select n.nspname as table_schema, c.relname as table_name, d.description as table_comment
                     from pg_catalog.pg_class c
@@ -785,6 +814,27 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                         "column_name",
                     },
                 )
+                has_fk = any(
+                    (row.get("constraint_type") or "").upper() == "FOREIGN KEY"
+                    for row in constraints_rows
+                )
+                if not has_fk:
+                    fallback_rows = await _execute_sql(
+                        session,
+                        fallback_fk_sql,
+                        expected_keys={
+                            "table_schema",
+                            "table_name",
+                            "constraint_name",
+                            "constraint_type",
+                            "column_name",
+                            "foreign_table_schema",
+                            "foreign_table_name",
+                            "foreign_column_name",
+                        },
+                    )
+                    if fallback_rows:
+                        constraints_rows.extend(fallback_rows)
                 table_comments_rows = await _execute_sql(
                     session,
                     table_comments_sql,
