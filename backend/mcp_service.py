@@ -35,6 +35,7 @@ SUPABASE_OAUTH_ORG_SLUG = os.getenv("SUPABASE_OAUTH_ORGANIZATION_SLUG", "")
 
 OAUTH_CLIENT_ID = os.getenv("SUPABASE_OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
+MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
 
 
 def _now_iso() -> str:
@@ -295,6 +296,21 @@ def _build_mcp_url(project_ref: str) -> str:
     return f"{template}{separator}project_ref={project_ref}"
 
 
+def _parse_schema_filter() -> List[str]:
+    if MCP_SCHEMAS.strip():
+        raw = MCP_SCHEMAS
+    else:
+        raw = "public"
+    schemas = [item.strip() for item in raw.split(",")]
+    return [schema for schema in schemas if schema]
+
+
+def _sql_in_list(values: List[str]) -> str:
+    escaped = [value.replace("'", "''") for value in values]
+    quoted = [f"'{value}'" for value in escaped]
+    return ", ".join(quoted)
+
+
 def _code_verifier() -> str:
     return secrets.token_urlsafe(64)
 
@@ -382,11 +398,13 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
 
 
 def _first_json_in_text(text: str) -> Optional[Any]:
-    start_positions = [i for i, ch in enumerate(text) if ch in ("{", "[")]
-    for start in start_positions:
-        snippet = text[start:]
+    decoder = json.JSONDecoder()
+    for idx, ch in enumerate(text):
+        if ch not in ("{", "["):
+            continue
         try:
-            return json.loads(snippet)
+            obj, _ = decoder.raw_decode(text[idx:])
+            return obj
         except json.JSONDecodeError:
             continue
     return None
@@ -412,15 +430,89 @@ def _parse_tool_result(result: Any) -> Any:
     return {"raw": [c.text for c in result.content if isinstance(c, types.TextContent)]}
 
 
-def _normalize_rows(payload: Any) -> List[Dict[str, Any]]:
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("data", "rows", "result", "records"):
-            value = payload.get(key)
-            if isinstance(value, list):
-                return value
-    return []
+def _coerce_tabular_rows(rows: Any, columns: Any) -> Optional[List[Dict[str, Any]]]:
+    if not isinstance(rows, list):
+        return None
+
+    col_names: List[str] = []
+    if isinstance(columns, list):
+        if columns and all(isinstance(col, dict) for col in columns):
+            col_names = [str(col.get("name", "")) for col in columns if col.get("name")]
+        elif columns and all(isinstance(col, str) for col in columns):
+            col_names = [col for col in columns if col]
+
+    if not col_names:
+        return None
+
+    normalized: List[Dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            normalized.append(row)
+        elif isinstance(row, (list, tuple)):
+            normalized.append(
+                {
+                    col_names[idx]: row[idx] if idx < len(row) else None
+                    for idx in range(len(col_names))
+                }
+            )
+    return normalized
+
+
+def _normalize_rows(payload: Any, expected_keys: Optional[set[str]] = None) -> List[Dict[str, Any]]:
+    candidates: List[List[Dict[str, Any]]] = []
+
+    def add_candidate(rows: Any) -> None:
+        if not isinstance(rows, list):
+            return
+        if rows and not all(isinstance(item, dict) for item in rows):
+            return
+        if rows:
+            candidates.append(rows)
+
+    def visit(obj: Any) -> None:
+        if isinstance(obj, dict):
+            if "rows" in obj and ("columns" in obj or "fields" in obj):
+                coerced = _coerce_tabular_rows(obj.get("rows"), obj.get("columns") or obj.get("fields"))
+                if coerced:
+                    candidates.append(coerced)
+            for value in obj.values():
+                visit(value)
+        elif isinstance(obj, list):
+            add_candidate(obj)
+            for value in obj:
+                visit(value)
+        elif isinstance(obj, str):
+            extracted = _first_json_in_text(obj)
+            if extracted is not None:
+                visit(extracted)
+
+    visit(payload)
+
+    if not candidates:
+        return []
+
+    expected_keys_lc = {key.lower() for key in expected_keys} if expected_keys else None
+
+    def score(rows: List[Dict[str, Any]]) -> Tuple[int, int]:
+        if not expected_keys_lc or not rows:
+            return (0, len(rows))
+        match_count = 0
+        for row in rows[:3]:
+            if not isinstance(row, dict):
+                continue
+            row_keys = {str(key).lower() for key in row.keys()}
+            match_count += len(row_keys & expected_keys_lc)
+        return (match_count, len(rows))
+
+    best_rows = max(candidates, key=score)
+    if not expected_keys_lc:
+        return best_rows
+
+    normalized_rows: List[Dict[str, Any]] = []
+    for row in best_rows:
+        if isinstance(row, dict):
+            normalized_rows.append({str(key).lower(): value for key, value in row.items()})
+    return normalized_rows
 
 
 def _resolve_sql_key(input_schema: Dict[str, Any]) -> str:
@@ -434,7 +526,9 @@ def _resolve_sql_key(input_schema: Dict[str, Any]) -> str:
     raise ValueError("Unable to infer SQL argument name for execute_sql tool.")
 
 
-async def _execute_sql(session: ClientSession, sql: str) -> List[Dict[str, Any]]:
+async def _execute_sql(
+    session: ClientSession, sql: str, expected_keys: Optional[set[str]] = None
+) -> List[Dict[str, Any]]:
     tools = await session.list_tools()
     tool_map = {tool.name: tool for tool in tools.tools}
     if "execute_sql" not in tool_map:
@@ -443,7 +537,7 @@ async def _execute_sql(session: ClientSession, sql: str) -> List[Dict[str, Any]]
     sql_key = _resolve_sql_key(input_schema)
     result = await session.call_tool("execute_sql", arguments={sql_key: sql})
     payload = _parse_tool_result(result)
-    return _normalize_rows(payload)
+    return _normalize_rows(payload, expected_keys=expected_keys)
 
 
 def _build_metadata(
@@ -594,6 +688,10 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
     access_token = token_info["access_token"]
     mcp_url = _build_mcp_url(project_ref)
     headers = {"Authorization": f"Bearer {access_token}"}
+    allowed_schemas = _parse_schema_filter()
+    schema_filter = f"and table_schema in ({_sql_in_list(allowed_schemas)})"
+    tc_schema_filter = f"and tc.table_schema in ({_sql_in_list(allowed_schemas)})"
+    ns_filter = f"and n.nspname in ({_sql_in_list(allowed_schemas)})"
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30) as http_client:
         async with streamable_http_client(mcp_url, http_client=http_client) as (
@@ -609,14 +707,16 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     from information_schema.tables
                     where table_type = 'BASE TABLE'
                       and table_schema not in ('pg_catalog', 'information_schema')
+                      {schema_filter}
                     order by table_schema, table_name;
-                """
+                """.format(schema_filter=schema_filter)
                 columns_sql = """
                     select table_schema, table_name, column_name, data_type, is_nullable, column_default, ordinal_position
                     from information_schema.columns
                     where table_schema not in ('pg_catalog', 'information_schema')
+                      {schema_filter}
                     order by table_schema, table_name, ordinal_position;
-                """
+                """.format(schema_filter=schema_filter)
                 constraints_sql = """
                     select
                         tc.table_schema,
@@ -635,16 +735,18 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     left join information_schema.constraint_column_usage ccu
                         on tc.constraint_name = ccu.constraint_name
                         and tc.table_schema = ccu.table_schema
-                    where tc.table_schema not in ('pg_catalog', 'information_schema');
-                """
+                    where tc.table_schema not in ('pg_catalog', 'information_schema')
+                      {schema_filter};
+                """.format(schema_filter=tc_schema_filter)
                 table_comments_sql = """
                     select n.nspname as table_schema, c.relname as table_name, d.description as table_comment
                     from pg_catalog.pg_class c
                     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
                     left join pg_catalog.pg_description d on d.objoid = c.oid and d.objsubid = 0
                     where c.relkind = 'r'
-                      and n.nspname not in ('pg_catalog', 'information_schema');
-                """
+                      and n.nspname not in ('pg_catalog', 'information_schema')
+                      {ns_filter};
+                """.format(ns_filter=ns_filter)
                 column_comments_sql = """
                     select
                         n.nspname as table_schema,
@@ -660,14 +762,39 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     left join pg_catalog.pg_description d
                         on d.objoid = c.oid and d.objsubid = a.attnum
                     where c.relkind = 'r'
-                      and n.nspname not in ('pg_catalog', 'information_schema');
-                """
+                      and n.nspname not in ('pg_catalog', 'information_schema')
+                      {ns_filter};
+                """.format(ns_filter=ns_filter)
 
-                tables_rows = await _execute_sql(session, tables_sql)
-                columns_rows = await _execute_sql(session, columns_sql)
-                constraints_rows = await _execute_sql(session, constraints_sql)
-                table_comments_rows = await _execute_sql(session, table_comments_sql)
-                column_comments_rows = await _execute_sql(session, column_comments_sql)
+                tables_rows = await _execute_sql(
+                    session, tables_sql, expected_keys={"table_schema", "table_name"}
+                )
+                columns_rows = await _execute_sql(
+                    session,
+                    columns_sql,
+                    expected_keys={"table_schema", "table_name", "column_name"},
+                )
+                constraints_rows = await _execute_sql(
+                    session,
+                    constraints_sql,
+                    expected_keys={
+                        "table_schema",
+                        "table_name",
+                        "constraint_name",
+                        "constraint_type",
+                        "column_name",
+                    },
+                )
+                table_comments_rows = await _execute_sql(
+                    session,
+                    table_comments_sql,
+                    expected_keys={"table_schema", "table_name", "table_comment"},
+                )
+                column_comments_rows = await _execute_sql(
+                    session,
+                    column_comments_sql,
+                    expected_keys={"table_schema", "table_name", "column_name", "column_comment"},
+                )
 
                 return _build_metadata(
                     tables_rows,
