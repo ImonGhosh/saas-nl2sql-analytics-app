@@ -1,7 +1,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.mcp import MCPServerStreamableHTTP
@@ -55,25 +55,54 @@ def _get_agent() -> Agent:
     return _AGENT
 
 
+def _extract_sql_from_args(tool_args: Dict[str, Any]) -> Optional[str]:
+    for key in ("sql", "query", "statement"):
+        value = tool_args.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if len(tool_args) == 1:
+        only_value = next(iter(tool_args.values()))
+        if isinstance(only_value, str) and only_value.strip():
+            return only_value.strip()
+    return None
+
+
 async def run_sql_agent(
     *,
     question: str,
     metadata: Dict[str, Any],
     access_token: str,
     project_ref: str,
-) -> str:
+) -> Dict[str, Optional[str]]:
     if not question or not question.strip():
         raise ValueError("Question is required.")
 
     mcp_url = build_mcp_url(project_ref)
     deps = SqlAgentDeps(metadata=metadata, mcp_url=mcp_url)
+
+    last_sql: Optional[str] = None
+
+    async def capture_tool_call(
+        ctx: RunContext[SqlAgentDeps],
+        call_tool: Any,
+        tool_name: str,
+        tool_args: Dict[str, Any],
+    ) -> Any:
+        nonlocal last_sql
+        if tool_name == "execute_sql":
+            extracted = _extract_sql_from_args(tool_args)
+            if extracted:
+                last_sql = extracted
+        return await call_tool(tool_name, tool_args, None)
+
     server = MCPServerStreamableHTTP(
         mcp_url,
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=30,
+        process_tool_call=capture_tool_call,
     )
     agent = _get_agent()
     async with agent:
         result = await agent.run(question.strip(), deps=deps, toolsets=[server])
 
-    return str(result.output)
+    return {"answer": str(result.output), "sql": last_sql}

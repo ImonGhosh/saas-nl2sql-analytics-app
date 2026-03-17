@@ -83,6 +83,7 @@ class SqlQueryRequest(BaseModel):
 
 class SqlQueryResponse(BaseModel):
     answer: str
+    sql: str | None = None
 
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
@@ -199,7 +200,7 @@ async def sql_query(
         )
 
     try:
-        answer = await run_sql_agent(
+        result = await run_sql_agent(
             question=payload.question,
             metadata=metadata,
             access_token=tokens["access_token"],
@@ -218,4 +219,6 @@ async def sql_query(
             detail=str(exc) if debug else "SQL agent failed.",
         ) from exc
 
-    return SqlQueryResponse(answer=answer)
+    answer = result.get("answer") or ""
+    sql = result.get("sql")
+    return SqlQueryResponse(answer=answer, sql=sql)

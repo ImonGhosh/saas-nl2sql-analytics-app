@@ -9,6 +9,7 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  sql?: string;
 };
 
 type SqlChatbotProps = {
@@ -62,7 +63,8 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
         body: JSON.stringify({ question: trimmed }),
       });
 
-      let payload: { answer?: string; detail?: string } | null = null;
+      let payload: { answer?: string; sql?: string; detail?: string } | null =
+        null;
       try {
         payload = (await response.json()) as {
           answer?: string;
@@ -81,6 +83,10 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
         typeof payload?.answer === "string"
           ? payload.answer
           : "No response returned.";
+      const sql =
+        typeof payload?.sql === "string" && payload.sql.trim()
+          ? payload.sql
+          : undefined;
 
       setMessages((prev) => [
         ...prev,
@@ -89,6 +95,7 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
           role: "assistant",
           content: answer,
           timestamp: new Date(),
+          sql,
         },
       ]);
     } catch (error) {
@@ -133,8 +140,7 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
               key={message.id}
               className={`flex gap-3 ${
                 message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+              }`}>
               {message.role === "assistant" && (
                 <div className="flex-shrink-0">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900">
@@ -148,16 +154,24 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
                   message.role === "user"
                     ? "bg-slate-900 text-white"
                     : "border border-slate-200 bg-white text-slate-800"
-                }`}
-              >
+                }`}>
                 <p className="whitespace-pre-wrap">{message.content}</p>
+                {message.role === "assistant" && message.sql && (
+                  <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                    <summary className="cursor-pointer font-semibold text-slate-700">
+                      View SQL
+                    </summary>
+                    <pre className="mt-2 whitespace-pre-wrap text-[11px] text-slate-600">
+                      {message.sql}
+                    </pre>
+                  </details>
+                )}
                 <p
                   className={`mt-1 text-xs ${
                     message.role === "user"
                       ? "text-slate-300"
                       : "text-slate-400"
-                  }`}
-                >
+                  }`}>
                   {message.timestamp.toLocaleTimeString()}
                 </p>
               </div>
