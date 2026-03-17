@@ -276,6 +276,21 @@ def _has_metadata(user_id: str) -> bool:
         return row is not None
 
 
+def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
+    with _connect_db() as conn:
+        row = conn.execute(
+            "select metadata_json from db_metadata where user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return json.loads(row[0])
+
+
+def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
+    return _load_tokens(user_id)
+
+
 def disconnect_user(user_id: str) -> None:
     with _connect_db() as conn:
         conn.execute("delete from mcp_tokens where user_id = ?", (user_id,))
@@ -286,6 +301,10 @@ def disconnect_user(user_id: str) -> None:
 
 def has_active_connection(user_id: str) -> bool:
     return _has_metadata(user_id)
+
+
+def build_mcp_url(project_ref: str) -> str:
+    return _build_mcp_url(project_ref)
 
 
 def _build_mcp_url(project_ref: str) -> str:

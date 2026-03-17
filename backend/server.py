@@ -25,10 +25,13 @@ logging.basicConfig(
 from mcp_service import (  # noqa: E402
     create_authorization_url,
     disconnect_user,
+    get_user_metadata,
+    get_user_tokens,
     handle_auth_callback,
     has_active_connection,
     init_mcp_db,
 )
+from sql_agent import run_sql_agent  # noqa: E402
 
 clerk_audience = os.getenv("CLERK_JWT_AUDIENCE") or None
 clerk_issuer = os.getenv("CLERK_JWT_ISSUER") or None
@@ -72,6 +75,14 @@ class McpAuthCallbackRequest(BaseModel):
 
 class McpStatusResponse(BaseModel):
     connected: bool
+
+
+class SqlQueryRequest(BaseModel):
+    question: str = Field(min_length=1)
+
+
+class SqlQueryResponse(BaseModel):
+    answer: str
 
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
@@ -166,3 +177,45 @@ async def mcp_disconnect(
     user_id = _get_user_id(creds)
     disconnect_user(user_id)
     return "Disconnected"
+
+
+@app.post("/sql/query", response_model=SqlQueryResponse)
+async def sql_query(
+    payload: SqlQueryRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> SqlQueryResponse:
+    user_id = _get_user_id(creds)
+    metadata = get_user_metadata(user_id)
+    if not metadata:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No database metadata found for user. Connect Supabase first.",
+        )
+    tokens = get_user_tokens(user_id)
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No active Supabase connection found for user.",
+        )
+
+    try:
+        answer = await run_sql_agent(
+            question=payload.question,
+            metadata=metadata,
+            access_token=tokens["access_token"],
+            project_ref=tokens["project_ref"],
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.exception("SQL agent run failed")
+        debug = os.getenv("DEBUG_MCP_ERRORS", "").lower() in ("1", "true", "yes")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc) if debug else "SQL agent failed.",
+        ) from exc
+
+    return SqlQueryResponse(answer=answer)

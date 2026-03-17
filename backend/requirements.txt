@@ -6,4 +6,4 @@ python-multipart
 fastapi-clerk-auth
 httpx
 mcp
-mcp
+pydantic-ai

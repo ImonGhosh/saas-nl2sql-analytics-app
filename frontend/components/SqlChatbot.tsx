@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { Bot, Send, User } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -14,30 +15,97 @@ type SqlChatbotProps = {
   onLogout: () => void;
 };
 
+const backendUrl =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const clerkJwtTemplate =
+  process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
+
 export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
+  const { getToken } = useAuth();
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleChatSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSending) return;
     const trimmed = chatInput.trim();
     if (!trimmed) return;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: "user",
-        content: trimmed,
-        timestamp: new Date(),
-      },
-    ]);
+    const userMessage: ChatMessage = {
+      id: `${Date.now()}-user`,
+      role: "user",
+      content: trimmed,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setChatInput("");
+
+    setIsSending(true);
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch(`${backendUrl}/sql/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question: trimmed }),
+      });
+
+      let payload: { answer?: string; detail?: string } | null = null;
+      try {
+        payload = (await response.json()) as {
+          answer?: string;
+          detail?: string;
+        };
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const detail = payload?.detail || `Request failed (${response.status}).`;
+        throw new Error(detail);
+      }
+
+      const answer =
+        typeof payload?.answer === "string"
+          ? payload.answer
+          : "No response returned.";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant`,
+          role: "assistant",
+          content: answer,
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to get response.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant-error`,
+          role: "assistant",
+          content: `Error: ${message}`,
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -117,15 +185,20 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
               placeholder="Ask a SQL question..."
+              disabled={isSending}
               className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
             />
             <button
               type="submit"
-              disabled={!chatInput.trim()}
+              disabled={!chatInput.trim() || isSending}
               className="rounded-lg bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               aria-label="Send message"
             >
-              <Send className="h-5 w-5" />
+              {isSending ? (
+                <span className="text-sm font-semibold">Sending...</span>
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
             </button>
           </div>
         </form>
