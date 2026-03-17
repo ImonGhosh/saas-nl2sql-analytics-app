@@ -10,6 +10,18 @@ from pydantic import BaseModel, Field
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
+LOG_LEVEL = os.getenv("LOG_LEVEL")
+if not LOG_LEVEL:
+    LOG_LEVEL = (
+        "INFO"
+        if os.getenv("DEBUG_MCP_PAYLOADS", "").lower() in ("1", "true", "yes")
+        else "WARNING"
+    )
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
 from mcp_service import (  # noqa: E402
     create_authorization_url,
     disconnect_user,
@@ -18,7 +30,19 @@ from mcp_service import (  # noqa: E402
     init_mcp_db,
 )
 
-clerk_config = ClerkConfig(jwks_url=os.getenv("CLERK_JWKS_URL"))
+clerk_audience = os.getenv("CLERK_JWT_AUDIENCE") or None
+clerk_issuer = os.getenv("CLERK_JWT_ISSUER") or None
+clerk_leeway = float(os.getenv("CLERK_JWT_LEEWAY_SECONDS", "60"))
+clerk_verify_iat = os.getenv("CLERK_VERIFY_IAT", "").lower() not in ("0", "false", "no")
+clerk_config = ClerkConfig(
+    jwks_url=os.getenv("CLERK_JWKS_URL"),
+    audience=clerk_audience,
+    issuer=clerk_issuer,
+    verify_aud=bool(clerk_audience),
+    verify_iss=bool(clerk_issuer),
+    verify_iat=clerk_verify_iat,
+    leeway=clerk_leeway,
+)
 clerk_guard = ClerkHTTPBearer(clerk_config)
 
 app = FastAPI()
