@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const clerkJwtTemplate =
+  process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
 export default function McpCallbackPage() {
   const { getToken, isLoaded } = useAuth();
@@ -58,7 +60,7 @@ export default function McpCallbackPage() {
         return;
       }
 
-      const token = await getToken();
+      const token = await getToken({ template: clerkJwtTemplate });
       if (!token) {
         setError("Authentication required.");
         return;

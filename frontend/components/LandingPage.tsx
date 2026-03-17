@@ -13,6 +13,8 @@ import SqlChatbot from "./SqlChatbot";
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const clerkJwtTemplate =
+  process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
 export default function LandingPage() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
@@ -75,7 +77,10 @@ export default function LandingPage() {
       if (isActive) setIsStatusLoading(true);
 
       try {
-        const token = await getToken({ skipCache: true });
+        const token = await getToken({
+          template: clerkJwtTemplate,
+          skipCache: true,
+        });
         if (!token) {
           if (isActive) setIsConnected(false);
           return;
@@ -110,7 +115,7 @@ export default function LandingPage() {
 
   const handleDisconnect = async () => {
     try {
-      const token = await getToken();
+      const token = await getToken({ template: clerkJwtTemplate });
       if (!token) {
         return;
       }
@@ -133,7 +138,7 @@ export default function LandingPage() {
     setConnectError("");
 
     try {
-      const token = await getToken();
+      const token = await getToken({ template: clerkJwtTemplate });
       if (!token) {
         setConnectError("Authentication required.");
         return;
