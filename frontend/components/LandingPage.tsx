@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SqlChatbot from "./SqlChatbot";
+import AnalyticsAgent from "./AnalyticsAgent";
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
@@ -251,13 +252,7 @@ export default function LandingPage() {
                 activeTab === "sql" ? (
                   <SqlChatbot onLogout={handleDisconnect} />
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleDisconnect}
-                    className="rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Logout
-                  </button>
+                  <AnalyticsAgent onLogout={handleDisconnect} />
                 )
                 ) : (
                 <button
