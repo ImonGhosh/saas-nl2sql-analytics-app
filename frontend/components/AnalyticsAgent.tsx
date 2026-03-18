@@ -34,6 +34,8 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
   const [chartPayload, setChartPayload] = useState<ChartPayload | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
 
   const buildChartPayload = (payload: {
     summary?: string;
@@ -100,6 +102,43 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
     };
   }, [getToken]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSuggestions = async () => {
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) return;
+
+        const response = await fetch(`${backendUrl}/charts/suggestions`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 404) return;
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status}).`);
+        }
+
+        const payload = (await response.json()) as { suggestions?: string[] };
+        const items = Array.isArray(payload.suggestions) ? payload.suggestions : [];
+        if (isActive) setSuggestions(items);
+      } catch (error) {
+        if (!isActive) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load suggestions.";
+        setErrorMessage(message);
+      }
+    };
+
+    void loadSuggestions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [getToken]);
+
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isCreating) return;
@@ -108,6 +147,7 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
 
     setIsCreating(true);
     setErrorMessage(null);
+    setIsSuggestionOpen(false);
     setLastRequest(trimmed);
     setChartPayload(null);
     setChartInput("");
@@ -171,13 +211,42 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
         className="rounded-xl border border-slate-200 bg-slate-50 p-4"
       >
         <div className="flex flex-col gap-3 sm:flex-row">
-          <textarea
-            value={chartInput}
-            onChange={(event) => setChartInput(event.target.value)}
-            placeholder="Example: Monthly revenue by plan tier for the last 12 months"
-            rows={2}
-            className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
-          />
+          <div className="relative flex-1">
+            <textarea
+              value={chartInput}
+              onChange={(event) => setChartInput(event.target.value)}
+              onFocus={() => {
+                if (suggestions.length > 0) setIsSuggestionOpen(true);
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setIsSuggestionOpen(false), 120);
+              }}
+              placeholder="Example: Monthly revenue by plan tier for the last 12 months"
+              rows={2}
+              className="min-h-[44px] w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+            />
+            {isSuggestionOpen && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-10 mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Suggestions
+                </div>
+                {suggestions.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setChartInput(item);
+                      setIsSuggestionOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             disabled={!chartInput.trim() || isCreating}

@@ -41,6 +41,7 @@ from chart_agent import (  # noqa: E402
     run_chart_query_agent,
     run_chart_spec_agent,
 )
+from chart_suggestions_agent import ChartSuggestions  # noqa: E402
 from sql_agent import run_sql_agent  # noqa: E402
 
 clerk_audience = os.getenv("CLERK_JWT_AUDIENCE") or None
@@ -213,6 +214,26 @@ def _delete_chart(user_id: str) -> None:
         file_path.unlink()
 
 
+def _chart_suggestions_path(user_id: str) -> Path:
+    safe_user = Path(user_id).name
+    return MEMORY_DIR / "charts" / safe_user / "suggestions.json"
+
+
+def _load_suggestions(user_id: str) -> Optional[ChartSuggestions]:
+    file_path = _chart_suggestions_path(user_id)
+    if not file_path.exists():
+        return None
+    with file_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return ChartSuggestions(**payload)
+
+
+def _delete_suggestions(user_id: str) -> None:
+    file_path = _chart_suggestions_path(user_id)
+    if file_path.exists():
+        file_path.unlink()
+
+
 init_mcp_db()
 
 
@@ -284,6 +305,7 @@ async def mcp_disconnect(
     user_id = _get_user_id(creds)
     disconnect_user(user_id)
     _delete_chart(user_id)
+    _delete_suggestions(user_id)
     return "Disconnected"
 
 
@@ -413,3 +435,17 @@ async def charts_last(
             detail="No saved chart found.",
         )
     return chart
+
+
+@app.get("/charts/suggestions", response_model=ChartSuggestions)
+async def charts_suggestions(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartSuggestions:
+    user_id = _get_user_id(creds)
+    suggestions = _load_suggestions(user_id)
+    if not suggestions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No chart suggestions found.",
+        )
+    return suggestions

@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import logging
 import os
 import secrets
 import sqlite3
@@ -14,9 +15,12 @@ import httpx
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
 
+from chart_suggestions_agent import ChartSuggestions, run_chart_suggestions_agent
+
 MCP_DB_PATH = Path(
     os.getenv("MCP_DB_PATH", str(Path(__file__).resolve().parent / "mcp.sqlite3"))
 )
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(Path(__file__).resolve().parent / "memory")))
 MCP_BASE_URL = os.getenv("SUPABASE_MCP_BASE_URL", "https://mcp.supabase.com").rstrip("/")
 MCP_SERVER_URL_TEMPLATE = os.getenv(
     "SUPABASE_MCP_SERVER_URL_TEMPLATE",
@@ -39,6 +43,8 @@ SUPABASE_OAUTH_CLIENT_AUTH_METHOD = os.getenv(
 OAUTH_CLIENT_ID = os.getenv("SUPABASE_OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
 MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
+
+logger = logging.getLogger("mcp")
 
 
 def _now_iso() -> str:
@@ -320,6 +326,25 @@ def _store_metadata(user_id: str, metadata: Dict[str, Any]) -> None:
         conn.commit()
 
 
+def _suggestions_path(user_id: str) -> Path:
+    safe_user = Path(user_id).name
+    return MEMORY_DIR / "charts" / safe_user / "suggestions.json"
+
+
+def _serialize_suggestions(suggestions: ChartSuggestions) -> Dict[str, Any]:
+    if hasattr(suggestions, "model_dump"):
+        return suggestions.model_dump()
+    return suggestions.dict()
+
+
+def _save_suggestions(user_id: str, suggestions: ChartSuggestions) -> None:
+    file_path = _suggestions_path(user_id)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _serialize_suggestions(suggestions)
+    with file_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, default=str)
+
+
 def _has_metadata(user_id: str) -> bool:
     with _connect_db() as conn:
         row = conn.execute(
@@ -493,6 +518,11 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
 
     metadata = await extract_metadata(user_id)
     _store_metadata(user_id, metadata)
+    try:
+        suggestions = await run_chart_suggestions_agent(metadata=metadata)
+        _save_suggestions(user_id, suggestions)
+    except Exception:
+        logger.exception("Chart suggestions generation failed")
 
 
 async def _refresh_access_token(refresh_token: str) -> Dict[str, Any]:
