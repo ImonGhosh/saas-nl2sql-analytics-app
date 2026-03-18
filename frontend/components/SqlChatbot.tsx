@@ -3,6 +3,8 @@
 import { useAuth } from "@clerk/nextjs";
 import { Bot, Send, User } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type ChatMessage = {
   id: string;
@@ -20,6 +22,47 @@ const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
+
+function Markdown({ children }: { children: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ ...props }) => (
+          <a
+            {...props}
+            className="text-slate-900 underline underline-offset-2"
+            target={props.href?.startsWith("#") ? undefined : "_blank"}
+            rel={props.href?.startsWith("#") ? undefined : "noreferrer"}
+          />
+        ),
+        p: ({ ...props }) => <p {...props} className="whitespace-pre-wrap" />,
+        ul: ({ ...props }) => <ul {...props} className="list-disc pl-6 space-y-1" />,
+        ol: ({ ...props }) => <ol {...props} className="list-decimal pl-6 space-y-1" />,
+        li: ({ ...props }) => <li {...props} />,
+        code: ({ children, className, ...props }) => (
+          <code
+            {...props}
+            className={[
+              "rounded bg-slate-100 px-1 py-0.5 text-[12px]",
+              className ?? "",
+            ].join(" ")}
+          >
+            {children}
+          </code>
+        ),
+        pre: ({ ...props }) => (
+          <pre
+            {...props}
+            className="overflow-x-auto rounded bg-slate-100 p-3 text-[12px]"
+          />
+        ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}
 
 export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
   const { getToken } = useAuth();
@@ -163,7 +206,11 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
                     ? "bg-slate-900 text-white"
                     : "border border-slate-200 bg-white text-slate-800"
                 }`}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <Markdown>{message.content}</Markdown>
+                ) : (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
                 {message.role === "assistant" && message.sql && (
                   <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                     <summary className="cursor-pointer font-semibold text-slate-700">
@@ -194,6 +241,23 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
             </div>
           ))}
 
+          {isSending && (
+            <div className="flex gap-3 justify-start">
+              <div className="flex-shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900">
+                  <Bot className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:120ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:240ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -217,7 +281,10 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
               aria-label="Send message"
             >
               {isSending ? (
-                <span className="text-sm font-semibold">Sending...</span>
+                <span
+                  className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white"
+                  aria-hidden="true"
+                />
               ) : (
                 <Send className="h-5 w-5" />
               )}
