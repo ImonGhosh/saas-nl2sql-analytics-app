@@ -32,6 +32,9 @@ SUPABASE_OAUTH_TOKEN_URL = os.getenv(
     "SUPABASE_OAUTH_TOKEN_URL", "https://api.supabase.com/v1/oauth/token"
 )
 SUPABASE_OAUTH_ORG_SLUG = os.getenv("SUPABASE_OAUTH_ORGANIZATION_SLUG", "")
+SUPABASE_OAUTH_CLIENT_AUTH_METHOD = os.getenv(
+    "SUPABASE_OAUTH_CLIENT_AUTH_METHOD", "client_secret_basic"
+).lower()
 
 OAUTH_CLIENT_ID = os.getenv("SUPABASE_OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
@@ -40,6 +43,55 @@ MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _token_expired(expires_at: Optional[str], leeway_seconds: int = 60) -> bool:
+    parsed = _parse_iso(expires_at)
+    if not parsed:
+        return bool(expires_at)
+    return parsed <= (datetime.now(timezone.utc) + timedelta(seconds=leeway_seconds))
+
+
+def _parse_expires_in(value: Any) -> Optional[int]:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
+
+
+def _oauth_client_auth() -> Tuple[Dict[str, str], Dict[str, str]]:
+    if not OAUTH_CLIENT_ID or not OAUTH_CLIENT_SECRET:
+        raise RuntimeError(
+            "Missing SUPABASE_OAUTH_CLIENT_ID or SUPABASE_OAUTH_CLIENT_SECRET."
+        )
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+    }
+    payload: Dict[str, str] = {}
+    if SUPABASE_OAUTH_CLIENT_AUTH_METHOD == "client_secret_post":
+        payload["client_id"] = OAUTH_CLIENT_ID
+        payload["client_secret"] = OAUTH_CLIENT_SECRET
+        return headers, payload
+
+    credentials = f"{OAUTH_CLIENT_ID}:{OAUTH_CLIENT_SECRET}"
+    headers["Authorization"] = (
+        "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
+    )
+    return headers, payload
 
 
 def _connect_db() -> sqlite3.Connection:
@@ -291,6 +343,41 @@ def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
     return _load_tokens(user_id)
 
 
+async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
+    tokens = _load_tokens(user_id)
+    if not tokens:
+        raise RuntimeError("No MCP tokens found for user.")
+
+    if _token_expired(tokens.get("expires_at")):
+        refresh_token = tokens.get("refresh_token")
+        try:
+            token_data = await _refresh_access_token(refresh_token or "")
+        except httpx.HTTPError as exc:
+            raise RuntimeError(
+                "Supabase connection expired. Please reconnect your MCP connection."
+            ) from exc
+        expires_in = _parse_expires_in(token_data.get("expires_in"))
+        expires_at = tokens.get("expires_at")
+        if expires_in is not None:
+            expires_at = (
+                datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            ).isoformat()
+        _store_tokens(
+            user_id=user_id,
+            project_ref=tokens["project_ref"],
+            access_token=token_data.get("access_token") or tokens["access_token"],
+            refresh_token=token_data.get("refresh_token") or refresh_token,
+            token_type=token_data.get("token_type") or tokens.get("token_type"),
+            scope=token_data.get("scope") or tokens.get("scope"),
+            expires_at=expires_at,
+        )
+        tokens = _load_tokens(user_id) or tokens
+
+    if not tokens.get("access_token"):
+        raise RuntimeError("No access token available for MCP connection.")
+    return tokens
+
+
 def disconnect_user(user_id: str) -> None:
     with _connect_db() as conn:
         conn.execute("delete from mcp_tokens where user_id = ?", (user_id,))
@@ -374,11 +461,6 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     if not auth_state or auth_state["user_id"] != user_id:
         raise ValueError("Invalid or expired OAuth state.")
 
-    if not OAUTH_CLIENT_ID or not OAUTH_CLIENT_SECRET:
-        raise RuntimeError(
-            "Missing SUPABASE_OAUTH_CLIENT_ID or SUPABASE_OAUTH_CLIENT_SECRET."
-        )
-
     async with httpx.AsyncClient(timeout=20) as client:
         payload = {
             "grant_type": "authorization_code",
@@ -386,21 +468,16 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
             "redirect_uri": MCP_REDIRECT_URI,
             "code_verifier": auth_state["code_verifier"],
         }
-        credentials = f"{OAUTH_CLIENT_ID}:{OAUTH_CLIENT_SECRET}"
-        headers = {
-            "Authorization": "Basic "
-            + base64.b64encode(credentials.encode("utf-8")).decode("utf-8"),
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        }
+        headers, auth_payload = _oauth_client_auth()
+        payload.update(auth_payload)
 
         response = await client.post(SUPABASE_OAUTH_TOKEN_URL, data=payload, headers=headers)
         response.raise_for_status()
         token_data = response.json()
 
-    expires_in = token_data.get("expires_in")
+    expires_in = _parse_expires_in(token_data.get("expires_in"))
     expires_at = None
-    if isinstance(expires_in, int):
+    if expires_in is not None:
         expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
     _store_tokens(
@@ -416,6 +493,21 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
 
     metadata = await extract_metadata(user_id)
     _store_metadata(user_id, metadata)
+
+
+async def _refresh_access_token(refresh_token: str) -> Dict[str, Any]:
+    if not refresh_token:
+        raise RuntimeError("No refresh token available.")
+    async with httpx.AsyncClient(timeout=20) as client:
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
+        headers, auth_payload = _oauth_client_auth()
+        payload.update(auth_payload)
+        response = await client.post(SUPABASE_OAUTH_TOKEN_URL, data=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
 
 
 def _first_json_in_text(text: str) -> Optional[Any]:

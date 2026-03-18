@@ -1,6 +1,7 @@
 "use client";
 
-import { BarChart3 } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
+import { BarChart3, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState, type FormEvent } from "react";
 import type { VisualizationSpec } from "vega-embed";
@@ -14,6 +15,11 @@ type AnalyticsAgentProps = {
   onLogout: () => void;
 };
 
+const backendUrl =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
+const clerkJwtTemplate =
+  process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
+
 type ChartPayload = {
   spec: VisualizationSpec;
   data: Record<string, unknown>[];
@@ -22,18 +28,76 @@ type ChartPayload = {
 };
 
 export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
+  const { getToken } = useAuth();
   const [chartInput, setChartInput] = useState("");
   const [lastRequest, setLastRequest] = useState<string | null>(null);
   const [chartPayload, setChartPayload] = useState<ChartPayload | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleCreate = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isCreating) return;
     const trimmed = chartInput.trim();
     if (!trimmed) return;
 
+    setIsCreating(true);
+    setErrorMessage(null);
     setLastRequest(trimmed);
     setChartPayload(null);
     setChartInput("");
+
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch(`${backendUrl}/charts/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question: trimmed }),
+      });
+
+      const payload = (await response.json()) as
+        | {
+            summary?: string;
+            chart_spec?: VisualizationSpec;
+            data?: Record<string, unknown>[];
+            sql?: string;
+            detail?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        const detail = payload?.detail || `Request failed (${response.status}).`;
+        throw new Error(detail);
+      }
+
+      const summary =
+        typeof payload?.summary === "string" ? payload.summary : undefined;
+      const spec =
+        payload?.chart_spec && typeof payload.chart_spec === "object"
+          ? payload.chart_spec
+          : null;
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+      const sql = typeof payload?.sql === "string" ? payload.sql : undefined;
+
+      if (!spec) {
+        throw new Error("Chart spec missing from response.");
+      }
+
+      setChartPayload({ spec, data, summary, sql });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create chart.";
+      setErrorMessage(message);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -47,7 +111,8 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
 
       <form
         onSubmit={handleCreate}
-        className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+      >
         <div className="flex flex-col gap-3 sm:flex-row">
           <textarea
             value={chartInput}
@@ -58,10 +123,17 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
           />
           <button
             type="submit"
-            disabled={!chartInput.trim()}
+            disabled={!chartInput.trim() || isCreating}
             className="h-[44px] rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
-            Create
+            {isCreating ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creating
+              </span>
+            ) : (
+              "Create"
+            )}
           </button>
         </div>
       </form>
@@ -95,6 +167,11 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
               Add a chart request above and click Create to render the analytics chart
               here.
             </p>
+            {errorMessage && (
+              <p className="max-w-sm text-sm font-semibold text-red-600">
+                {errorMessage}
+              </p>
+            )}
             {lastRequest && (
               <p className="text-xs text-slate-400">
                 Latest request: <span className="font-medium">{lastRequest}</span>

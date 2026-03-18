@@ -31,10 +31,15 @@ from mcp_service import (  # noqa: E402
     create_authorization_url,
     disconnect_user,
     get_user_metadata,
-    get_user_tokens,
+    get_valid_tokens,
     handle_auth_callback,
     has_active_connection,
     init_mcp_db,
+)
+from chart_agent import (  # noqa: E402
+    ChartResponse,
+    run_chart_query_agent,
+    run_chart_spec_agent,
 )
 from sql_agent import run_sql_agent  # noqa: E402
 
@@ -103,6 +108,11 @@ class SqlQueryResponse(BaseModel):
     answer: str
     sql: str | None = None
     session_id: str
+
+
+class ChartQueryRequest(BaseModel):
+    question: str = Field(min_length=1)
+
 
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
@@ -255,12 +265,13 @@ async def sql_query(
             status_code=status.HTTP_409_CONFLICT,
             detail="No database metadata found for user. Connect Supabase first.",
         )
-    tokens = get_user_tokens(user_id)
-    if not tokens:
+    try:
+        tokens = await get_valid_tokens(user_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No active Supabase connection found for user.",
-        )
+            detail=str(exc),
+        ) from exc
 
     conversation = _load_conversation(user_id, session_id)
     message_history = conversation[-10:]
@@ -303,3 +314,52 @@ async def sql_query(
     _save_conversation(user_id, session_id, conversation)
 
     return SqlQueryResponse(answer=answer, sql=sql, session_id=session_id)
+
+
+@app.post("/charts/query", response_model=ChartResponse)
+async def charts_query(
+    payload: ChartQueryRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartResponse:
+    user_id = _get_user_id(creds)
+    metadata = get_user_metadata(user_id)
+    if not metadata:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No database metadata found for user. Connect Supabase first.",
+        )
+    try:
+        tokens = await get_valid_tokens(user_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        query_result = await run_chart_query_agent(
+            question=payload.question,
+            metadata=metadata,
+            access_token=tokens["access_token"],
+            project_ref=tokens["project_ref"],
+        )
+        response = await run_chart_spec_agent(
+            question=payload.question,
+            sql=query_result.sql,
+            data=query_result.data,
+            columns=query_result.columns,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.exception("Chart agent run failed")
+        debug = os.getenv("DEBUG_MCP_ERRORS", "").lower() in ("1", "true", "yes")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc) if debug else "Chart agent failed.",
+        ) from exc
+
+    return response
