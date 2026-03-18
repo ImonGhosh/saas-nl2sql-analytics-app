@@ -26,6 +26,7 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -60,11 +61,15 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({
+          question: trimmed,
+          session_id: sessionId || undefined,
+        }),
       });
 
-      let payload: { answer?: string; sql?: string; detail?: string } | null =
-        null;
+      let payload:
+        | { answer?: string; sql?: string; session_id?: string; detail?: string }
+        | null = null;
       try {
         payload = (await response.json()) as {
           answer?: string;
@@ -87,6 +92,9 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
         typeof payload?.sql === "string" && payload.sql.trim()
           ? payload.sql
           : undefined;
+      if (!sessionId && payload?.session_id) {
+        setSessionId(payload.session_id);
+      }
 
       setMessages((prev) => [
         ...prev,

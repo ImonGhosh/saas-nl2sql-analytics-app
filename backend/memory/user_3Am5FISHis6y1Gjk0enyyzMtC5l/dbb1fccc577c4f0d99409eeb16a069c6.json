@@ -1,0 +1,68 @@
+[
+  {
+    "role": "user",
+    "content": "What tables are present ?",
+    "timestamp": "2026-03-18T00:10:04.295151"
+  },
+  {
+    "role": "assistant",
+    "content": "The database contains the following tables:\n\n1. `branch_finance_kpis`\n2. `finance_economics_dataset`\n3. `market_event_annotations`",
+    "sql": null,
+    "timestamp": "2026-03-18T00:10:04.295151"
+  },
+  {
+    "role": "user",
+    "content": "Provide a few details about the 2nd table",
+    "timestamp": "2026-03-18T00:10:26.520668"
+  },
+  {
+    "role": "assistant",
+    "content": "The `finance_economics_dataset` table contains the following columns:\n\n1. **Date** (text, nullable)\n2. **Stock Index** (text, nullable)\n3. **Open Price** (double precision, nullable)\n4. **Close Price** (double precision, nullable)\n5. **Daily High** (double precision, nullable)\n6. **Daily Low** (double precision, nullable)\n7. **Trading Volume** (bigint, nullable)\n8. **GDP Growth (%)** (double precision, nullable)\n9. **Inflation Rate (%)** (double precision, nullable)\n10. **Unemployment Rate (%)** (double precision, nullable)\n11. **Interest Rate (%)** (double precision, nullable)\n12. **Consumer Confidence Index** (bigint, nullable)\n13. **Government Debt (Billion USD)** (bigint, nullable)\n14. **Corporate Profits (Billion USD)** (bigint, nullable)\n15. **Forex USD/EUR** (double precision, nullable)\n16. **Forex USD/JPY** (double precision, nullable)\n17. **Crude Oil Price (USD per Barrel)** (double precision, nullable)\n18. **Gold Price (USD per Ounce)** (double precision, nullable)\n19. **Real Estate Index** (double precision, nullable)\n20. **Retail Sales (Billion USD)** (bigint, nullable)\n21. **Bankruptcy Rate (%)** (double precision, nullable)\n22. **Mergers & Acquisitions Deals** (bigint, nullable)\n23. **Venture Capital Funding (Billion USD)** (double precision, nullable)\n24. **Consumer Spending (Billion USD)** (bigint, nullable)\n\nThe table does not have any defined primary keys or unique constraints.",
+    "sql": null,
+    "timestamp": "2026-03-18T00:10:26.520668"
+  },
+  {
+    "role": "user",
+    "content": "My name is Imon",
+    "timestamp": "2026-03-18T00:10:56.928917"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello Imon! How can I assist you today?",
+    "sql": null,
+    "timestamp": "2026-03-18T00:10:56.928917"
+  },
+  {
+    "role": "user",
+    "content": "What did I say my name was ?",
+    "timestamp": "2026-03-18T00:11:17.317445"
+  },
+  {
+    "role": "assistant",
+    "content": "You said your name is Imon.",
+    "sql": null,
+    "timestamp": "2026-03-18T00:11:17.317445"
+  },
+  {
+    "role": "user",
+    "content": "Which unique stock indexes are present ?",
+    "timestamp": "2026-03-18T00:12:22.349859"
+  },
+  {
+    "role": "assistant",
+    "content": "The unique stock indexes present in the `finance_economics_dataset` table are:\n\n1. S&P 500\n2. NASDAQ\n3. Dow Jones",
+    "sql": "SELECT DISTINCT \"Stock Index\" FROM public.finance_economics_dataset LIMIT 20;",
+    "timestamp": "2026-03-18T00:12:22.349859"
+  },
+  {
+    "role": "user",
+    "content": "Can you provide the SQL for my previous query ?",
+    "timestamp": "2026-03-18T00:12:46.813591"
+  },
+  {
+    "role": "assistant",
+    "content": "Certainly! Here is the SQL query to retrieve the unique stock indexes from the `finance_economics_dataset` table:\n\n```sql\nSELECT DISTINCT \"Stock Index\"\nFROM public.finance_economics_dataset;\n``` \n\nThis query selects distinct values from the \"Stock Index\" column.",
+    "sql": null,
+    "timestamp": "2026-03-18T00:12:46.813591"
+  }
+]

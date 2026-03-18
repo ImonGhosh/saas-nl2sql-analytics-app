@@ -1,5 +1,10 @@
+import json
 import logging
 import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -59,6 +64,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(Path(__file__).resolve().parent / "memory")))
+
+if USE_S3:
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+    except Exception as exc:
+        raise RuntimeError("USE_S3=true requires boto3 to be installed.") from exc
+    s3_client = boto3.client("s3")
+
 
 class McpAuthStartRequest(BaseModel):
     project_ref: str = Field(min_length=3)
@@ -79,11 +96,13 @@ class McpStatusResponse(BaseModel):
 
 class SqlQueryRequest(BaseModel):
     question: str = Field(min_length=1)
+    session_id: Optional[str] = None
 
 
 class SqlQueryResponse(BaseModel):
     answer: str
     sql: str | None = None
+    session_id: str
 
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
@@ -105,6 +124,49 @@ def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unable to resolve user identity.",
     )
+
+
+def _memory_key(user_id: str, session_id: str) -> str:
+    safe_user = Path(user_id).name
+    safe_session = Path(session_id).name
+    if safe_session.endswith(".json"):
+        filename = safe_session
+    else:
+        filename = f"{safe_session}.json"
+    return f"{safe_user}/{filename}"
+
+
+def _load_conversation(user_id: str, session_id: str) -> List[Dict[str, Any]]:
+    key = _memory_key(user_id, session_id)
+    if USE_S3:
+        try:
+            response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
+            return json.loads(response["Body"].read().decode("utf-8"))
+        except ClientError as err:
+            if err.response.get("Error", {}).get("Code") == "NoSuchKey":
+                return []
+            raise
+    file_path = MEMORY_DIR / key
+    if file_path.exists():
+        with file_path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    return []
+
+
+def _save_conversation(user_id: str, session_id: str, messages: List[Dict[str, Any]]) -> None:
+    key = _memory_key(user_id, session_id)
+    if USE_S3:
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=json.dumps(messages, indent=2),
+            ContentType="application/json",
+        )
+        return
+    file_path = MEMORY_DIR / key
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    with file_path.open("w", encoding="utf-8") as handle:
+        json.dump(messages, handle, indent=2)
 
 
 init_mcp_db()
@@ -186,6 +248,7 @@ async def sql_query(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> SqlQueryResponse:
     user_id = _get_user_id(creds)
+    session_id = payload.session_id or uuid4().hex
     metadata = get_user_metadata(user_id)
     if not metadata:
         raise HTTPException(
@@ -199,12 +262,16 @@ async def sql_query(
             detail="No active Supabase connection found for user.",
         )
 
+    conversation = _load_conversation(user_id, session_id)
+    message_history = conversation[-10:]
+
     try:
         result = await run_sql_agent(
             question=payload.question,
             metadata=metadata,
             access_token=tokens["access_token"],
             project_ref=tokens["project_ref"],
+            message_history=message_history,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -221,4 +288,18 @@ async def sql_query(
 
     answer = result.get("answer") or ""
     sql = result.get("sql")
-    return SqlQueryResponse(answer=answer, sql=sql)
+    timestamp = datetime.utcnow().isoformat()
+    conversation.append(
+        {"role": "user", "content": payload.question, "timestamp": timestamp}
+    )
+    conversation.append(
+        {
+            "role": "assistant",
+            "content": answer,
+            "sql": sql,
+            "timestamp": timestamp,
+        }
+    )
+    _save_conversation(user_id, session_id, conversation)
+
+    return SqlQueryResponse(answer=answer, sql=sql, session_id=session_id)

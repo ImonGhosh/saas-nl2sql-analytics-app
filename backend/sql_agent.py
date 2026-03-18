@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 
 from mcp_service import build_mcp_url
@@ -67,12 +68,31 @@ def _extract_sql_from_args(tool_args: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _build_message_history(
+    messages: Optional[list[Dict[str, Any]]],
+) -> list[object]:
+    if not messages:
+        return []
+    history: list[object] = []
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content", "")
+        if not isinstance(content, str) or not content:
+            continue
+        if role == "user":
+            history.append(ModelRequest.user_text_prompt(content))
+        elif role == "assistant":
+            history.append(ModelResponse(parts=[TextPart(content)]))
+    return history
+
+
 async def run_sql_agent(
     *,
     question: str,
     metadata: Dict[str, Any],
     access_token: str,
     project_ref: str,
+    message_history: Optional[list[Dict[str, Any]]] = None,
 ) -> Dict[str, Optional[str]]:
     if not question or not question.strip():
         raise ValueError("Question is required.")
@@ -102,7 +122,13 @@ async def run_sql_agent(
         process_tool_call=capture_tool_call,
     )
     agent = _get_agent()
+    history = _build_message_history(message_history)
     async with agent:
-        result = await agent.run(question.strip(), deps=deps, toolsets=[server])
+        result = await agent.run(
+            question.strip(),
+            deps=deps,
+            toolsets=[server],
+            message_history=history,
+        )
 
     return {"answer": str(result.output), "sql": last_sql}
