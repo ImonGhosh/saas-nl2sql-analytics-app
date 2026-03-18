@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { BarChart3, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { VisualizationSpec } from "vega-embed";
 
 const VegaLite = dynamic(
@@ -34,6 +34,71 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
   const [chartPayload, setChartPayload] = useState<ChartPayload | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const buildChartPayload = (payload: {
+    summary?: string;
+    chart_spec?: VisualizationSpec;
+    data?: Record<string, unknown>[];
+    sql?: string;
+  } | null): ChartPayload | null => {
+    if (!payload) return null;
+    if (!payload.chart_spec || typeof payload.chart_spec !== "object") {
+      return null;
+    }
+    const data = Array.isArray(payload.data) ? payload.data : [];
+    return {
+      spec: payload.chart_spec,
+      data,
+      summary: typeof payload.summary === "string" ? payload.summary : undefined,
+      sql: typeof payload.sql === "string" ? payload.sql : undefined,
+    };
+  };
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLastChart = async () => {
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) return;
+
+        const response = await fetch(`${backendUrl}/charts/last`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 404) return;
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status}).`);
+        }
+
+        const payload = (await response.json()) as {
+          summary?: string;
+          chart_spec?: VisualizationSpec;
+          data?: Record<string, unknown>[];
+          sql?: string;
+        };
+
+        if (!isActive) return;
+        const parsed = buildChartPayload(payload);
+        if (parsed) {
+          setChartPayload(parsed);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load chart.";
+        setErrorMessage(message);
+      }
+    };
+
+    void loadLastChart();
+
+    return () => {
+      isActive = false;
+    };
+  }, [getToken]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,20 +142,12 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
         throw new Error(detail);
       }
 
-      const summary =
-        typeof payload?.summary === "string" ? payload.summary : undefined;
-      const spec =
-        payload?.chart_spec && typeof payload.chart_spec === "object"
-          ? payload.chart_spec
-          : null;
-      const data = Array.isArray(payload?.data) ? payload.data : [];
-      const sql = typeof payload?.sql === "string" ? payload.sql : undefined;
-
-      if (!spec) {
+      const parsed = buildChartPayload(payload);
+      if (!parsed) {
         throw new Error("Chart spec missing from response.");
       }
 
-      setChartPayload({ spec, data, summary, sql });
+      setChartPayload(parsed);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create chart.";
@@ -144,10 +201,19 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
             {chartPayload.summary && (
               <p className="text-sm text-slate-700">{chartPayload.summary}</p>
             )}
-            <VegaLite
-              spec={chartPayload.spec}
-              data={{ values: chartPayload.data }}
-            />
+            <div className="min-h-[320px] flex-1 w-full">
+              <VegaLite
+                spec={{
+                  ...chartPayload.spec,
+                  width: "container",
+                  height: 360,
+                  autosize: { type: "fit", contains: "padding" },
+                }}
+                data={{ values: chartPayload.data }}
+                className="w-full"
+                style={{ width: "100%" }}
+              />
+            </div>
             {chartPayload.sql && (
               <details className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                 <summary className="cursor-pointer font-semibold text-slate-700">

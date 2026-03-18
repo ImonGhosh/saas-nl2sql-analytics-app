@@ -1,0 +1,1034 @@
+{
+  "summary": "The chart visualizes the opening prices of different stock indices over time, highlighting trends in financial markets.",
+  "chart_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "title": "Open Prices of Stock Indices Over Time",
+    "data": {
+      "name": "values"
+    },
+    "mark": {
+      "type": "line",
+      "point": true
+    },
+    "encoding": {
+      "x": {
+        "field": "Date",
+        "type": "temporal",
+        "title": "Date"
+      },
+      "y": {
+        "field": "Open Price",
+        "type": "quantitative",
+        "title": "Open Price"
+      },
+      "color": {
+        "field": "Stock Index",
+        "type": "nominal",
+        "title": "Stock Index"
+      }
+    }
+  },
+  "data": [
+    {
+      "Date": "2000-01-01",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2128.75
+    },
+    {
+      "Date": "2000-01-02",
+      "Stock Index": "S&P 500",
+      "Open Price": 2046.82
+    },
+    {
+      "Date": "2000-01-03",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1987.92
+    },
+    {
+      "Date": "2000-01-04",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4625.02
+    },
+    {
+      "Date": "2000-01-05",
+      "Stock Index": "S&P 500",
+      "Open Price": 1998.18
+    },
+    {
+      "Date": "2000-01-06",
+      "Stock Index": "S&P 500",
+      "Open Price": 2087.8
+    },
+    {
+      "Date": "2000-01-07",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4037.59
+    },
+    {
+      "Date": "2000-01-08",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2798.96
+    },
+    {
+      "Date": "2000-01-09",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4106.84
+    },
+    {
+      "Date": "2000-01-10",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1261.46
+    },
+    {
+      "Date": "2000-01-11",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2950.28
+    },
+    {
+      "Date": "2000-01-12",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1134.45
+    },
+    {
+      "Date": "2000-01-13",
+      "Stock Index": "S&P 500",
+      "Open Price": 1250.61
+    },
+    {
+      "Date": "2000-01-14",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4625.75
+    },
+    {
+      "Date": "2000-01-15",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1556.98
+    },
+    {
+      "Date": "2000-01-16",
+      "Stock Index": "S&P 500",
+      "Open Price": 3129.68
+    },
+    {
+      "Date": "2000-01-17",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2644.38
+    },
+    {
+      "Date": "2000-01-18",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2389.37
+    },
+    {
+      "Date": "2000-01-19",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4599.33
+    },
+    {
+      "Date": "2000-01-20",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1087.29
+    },
+    {
+      "Date": "2000-01-21",
+      "Stock Index": "S&P 500",
+      "Open Price": 3655.16
+    },
+    {
+      "Date": "2000-01-22",
+      "Stock Index": "S&P 500",
+      "Open Price": 4853.58
+    },
+    {
+      "Date": "2000-01-23",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3240.67
+    },
+    {
+      "Date": "2000-01-24",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4747.29
+    },
+    {
+      "Date": "2000-01-25",
+      "Stock Index": "S&P 500",
+      "Open Price": 1209.03
+    },
+    {
+      "Date": "2000-01-26",
+      "Stock Index": "S&P 500",
+      "Open Price": 2675.17
+    },
+    {
+      "Date": "2000-01-27",
+      "Stock Index": "S&P 500",
+      "Open Price": 2040.63
+    },
+    {
+      "Date": "2000-01-28",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3923.28
+    },
+    {
+      "Date": "2000-01-29",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4925.19
+    },
+    {
+      "Date": "2000-01-30",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2026.12
+    },
+    {
+      "Date": "2000-01-31",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3616.7
+    },
+    {
+      "Date": "2000-02-01",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1792.39
+    },
+    {
+      "Date": "2000-02-02",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3261.32
+    },
+    {
+      "Date": "2000-02-03",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2855.73
+    },
+    {
+      "Date": "2000-02-04",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4888.02
+    },
+    {
+      "Date": "2000-02-05",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3434.11
+    },
+    {
+      "Date": "2000-02-06",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2398.03
+    },
+    {
+      "Date": "2000-02-07",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1456.38
+    },
+    {
+      "Date": "2000-02-08",
+      "Stock Index": "S&P 500",
+      "Open Price": 1604.99
+    },
+    {
+      "Date": "2000-02-09",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1901.27
+    },
+    {
+      "Date": "2000-02-10",
+      "Stock Index": "S&P 500",
+      "Open Price": 2003.87
+    },
+    {
+      "Date": "2000-02-11",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4402.46
+    },
+    {
+      "Date": "2000-02-12",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3244.89
+    },
+    {
+      "Date": "2000-02-13",
+      "Stock Index": "S&P 500",
+      "Open Price": 3093.56
+    },
+    {
+      "Date": "2000-02-14",
+      "Stock Index": "S&P 500",
+      "Open Price": 1459.08
+    },
+    {
+      "Date": "2000-02-15",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4440.56
+    },
+    {
+      "Date": "2000-02-16",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3891.26
+    },
+    {
+      "Date": "2000-02-17",
+      "Stock Index": "S&P 500",
+      "Open Price": 1270.67
+    },
+    {
+      "Date": "2000-02-18",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3831.34
+    },
+    {
+      "Date": "2000-02-19",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3174.15
+    },
+    {
+      "Date": "2000-02-20",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1326.9
+    },
+    {
+      "Date": "2000-02-21",
+      "Stock Index": "S&P 500",
+      "Open Price": 2833.2
+    },
+    {
+      "Date": "2000-02-22",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2938.79
+    },
+    {
+      "Date": "2000-02-23",
+      "Stock Index": "S&P 500",
+      "Open Price": 1663.1
+    },
+    {
+      "Date": "2000-02-24",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4782.79
+    },
+    {
+      "Date": "2000-02-25",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4399.9
+    },
+    {
+      "Date": "2000-02-26",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3676.09
+    },
+    {
+      "Date": "2000-02-27",
+      "Stock Index": "S&P 500",
+      "Open Price": 2849.18
+    },
+    {
+      "Date": "2000-02-28",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2647.06
+    },
+    {
+      "Date": "2000-02-29",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3603.89
+    },
+    {
+      "Date": "2000-03-01",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3181.73
+    },
+    {
+      "Date": "2000-03-02",
+      "Stock Index": "S&P 500",
+      "Open Price": 1249.09
+    },
+    {
+      "Date": "2000-03-03",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3050.01
+    },
+    {
+      "Date": "2000-03-04",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4225.61
+    },
+    {
+      "Date": "2000-03-05",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2836.96
+    },
+    {
+      "Date": "2000-03-06",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1207.83
+    },
+    {
+      "Date": "2000-03-07",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4145.11
+    },
+    {
+      "Date": "2000-03-08",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1805.46
+    },
+    {
+      "Date": "2000-03-09",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2034.48
+    },
+    {
+      "Date": "2000-03-10",
+      "Stock Index": "S&P 500",
+      "Open Price": 1658.83
+    },
+    {
+      "Date": "2000-03-11",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2320.86
+    },
+    {
+      "Date": "2000-03-12",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4027.01
+    },
+    {
+      "Date": "2000-03-13",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3077.54
+    },
+    {
+      "Date": "2000-03-14",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1819.53
+    },
+    {
+      "Date": "2000-03-15",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4511.32
+    },
+    {
+      "Date": "2000-03-16",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4518.33
+    },
+    {
+      "Date": "2000-03-17",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4482.31
+    },
+    {
+      "Date": "2000-03-18",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1955.18
+    },
+    {
+      "Date": "2000-03-19",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2804.96
+    },
+    {
+      "Date": "2000-03-20",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4939.96
+    },
+    {
+      "Date": "2000-03-21",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4088.05
+    },
+    {
+      "Date": "2000-03-22",
+      "Stock Index": "S&P 500",
+      "Open Price": 1108.67
+    },
+    {
+      "Date": "2000-03-23",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1260.82
+    },
+    {
+      "Date": "2000-03-24",
+      "Stock Index": "S&P 500",
+      "Open Price": 2855.73
+    },
+    {
+      "Date": "2000-03-25",
+      "Stock Index": "S&P 500",
+      "Open Price": 4636.88
+    },
+    {
+      "Date": "2000-03-26",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3154.81
+    },
+    {
+      "Date": "2000-03-27",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2991.25
+    },
+    {
+      "Date": "2000-03-28",
+      "Stock Index": "S&P 500",
+      "Open Price": 1421.89
+    },
+    {
+      "Date": "2000-03-29",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3627.12
+    },
+    {
+      "Date": "2000-03-30",
+      "Stock Index": "S&P 500",
+      "Open Price": 4288.41
+    },
+    {
+      "Date": "2000-03-31",
+      "Stock Index": "S&P 500",
+      "Open Price": 2521.68
+    },
+    {
+      "Date": "2000-04-01",
+      "Stock Index": "S&P 500",
+      "Open Price": 4102.45
+    },
+    {
+      "Date": "2000-04-02",
+      "Stock Index": "S&P 500",
+      "Open Price": 4857.91
+    },
+    {
+      "Date": "2000-04-03",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1815.07
+    },
+    {
+      "Date": "2000-04-04",
+      "Stock Index": "S&P 500",
+      "Open Price": 3093.32
+    },
+    {
+      "Date": "2000-04-05",
+      "Stock Index": "S&P 500",
+      "Open Price": 2148.55
+    },
+    {
+      "Date": "2000-04-06",
+      "Stock Index": "S&P 500",
+      "Open Price": 4171.42
+    },
+    {
+      "Date": "2000-04-07",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3310.37
+    },
+    {
+      "Date": "2000-04-08",
+      "Stock Index": "S&P 500",
+      "Open Price": 3538.33
+    },
+    {
+      "Date": "2000-04-09",
+      "Stock Index": "S&P 500",
+      "Open Price": 4191.66
+    },
+    {
+      "Date": "2000-04-10",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2583.88
+    },
+    {
+      "Date": "2000-04-11",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4660.36
+    },
+    {
+      "Date": "2000-04-12",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3132.12
+    },
+    {
+      "Date": "2000-04-13",
+      "Stock Index": "S&P 500",
+      "Open Price": 1631.82
+    },
+    {
+      "Date": "2000-04-14",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3783.6
+    },
+    {
+      "Date": "2000-04-15",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4173.05
+    },
+    {
+      "Date": "2000-04-16",
+      "Stock Index": "S&P 500",
+      "Open Price": 2267.05
+    },
+    {
+      "Date": "2000-04-17",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4428.72
+    },
+    {
+      "Date": "2000-04-18",
+      "Stock Index": "S&P 500",
+      "Open Price": 4624.57
+    },
+    {
+      "Date": "2000-04-19",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2107.62
+    },
+    {
+      "Date": "2000-04-20",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4934.09
+    },
+    {
+      "Date": "2000-04-21",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1562.85
+    },
+    {
+      "Date": "2000-04-22",
+      "Stock Index": "S&P 500",
+      "Open Price": 1808.06
+    },
+    {
+      "Date": "2000-04-23",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1736.9
+    },
+    {
+      "Date": "2000-04-24",
+      "Stock Index": "S&P 500",
+      "Open Price": 4575.96
+    },
+    {
+      "Date": "2000-04-25",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3617.17
+    },
+    {
+      "Date": "2000-04-26",
+      "Stock Index": "S&P 500",
+      "Open Price": 1608.42
+    },
+    {
+      "Date": "2000-04-27",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2761.29
+    },
+    {
+      "Date": "2000-04-28",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3461.19
+    },
+    {
+      "Date": "2000-04-29",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1333.86
+    },
+    {
+      "Date": "2000-04-30",
+      "Stock Index": "S&P 500",
+      "Open Price": 4529.67
+    },
+    {
+      "Date": "2000-05-01",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4214.41
+    },
+    {
+      "Date": "2000-05-02",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3020.83
+    },
+    {
+      "Date": "2000-05-03",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4868.51
+    },
+    {
+      "Date": "2000-05-04",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2671.04
+    },
+    {
+      "Date": "2000-05-05",
+      "Stock Index": "S&P 500",
+      "Open Price": 4936.44
+    },
+    {
+      "Date": "2000-05-06",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3671.68
+    },
+    {
+      "Date": "2000-05-07",
+      "Stock Index": "S&P 500",
+      "Open Price": 3538.69
+    },
+    {
+      "Date": "2000-05-08",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1663.82
+    },
+    {
+      "Date": "2000-05-09",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4527.71
+    },
+    {
+      "Date": "2000-05-10",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2709.96
+    },
+    {
+      "Date": "2000-05-11",
+      "Stock Index": "S&P 500",
+      "Open Price": 1648.93
+    },
+    {
+      "Date": "2000-05-12",
+      "Stock Index": "S&P 500",
+      "Open Price": 1050.43
+    },
+    {
+      "Date": "2000-05-13",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3239.02
+    },
+    {
+      "Date": "2000-05-14",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3109.6
+    },
+    {
+      "Date": "2000-05-15",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3877.41
+    },
+    {
+      "Date": "2000-05-16",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4561.03
+    },
+    {
+      "Date": "2000-05-17",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1317.63
+    },
+    {
+      "Date": "2000-05-18",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3925.99
+    },
+    {
+      "Date": "2000-05-19",
+      "Stock Index": "S&P 500",
+      "Open Price": 1749.65
+    },
+    {
+      "Date": "2000-05-20",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4432.71
+    },
+    {
+      "Date": "2000-05-21",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4276.25
+    },
+    {
+      "Date": "2000-05-22",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3163.18
+    },
+    {
+      "Date": "2000-05-23",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3840.97
+    },
+    {
+      "Date": "2000-05-24",
+      "Stock Index": "S&P 500",
+      "Open Price": 2257.4
+    },
+    {
+      "Date": "2000-05-25",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2884.67
+    },
+    {
+      "Date": "2000-05-26",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4286.55
+    },
+    {
+      "Date": "2000-05-27",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2837.06
+    },
+    {
+      "Date": "2000-05-28",
+      "Stock Index": "S&P 500",
+      "Open Price": 2431.19
+    },
+    {
+      "Date": "2000-05-29",
+      "Stock Index": "S&P 500",
+      "Open Price": 2976.85
+    },
+    {
+      "Date": "2000-05-30",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4313
+    },
+    {
+      "Date": "2000-05-31",
+      "Stock Index": "S&P 500",
+      "Open Price": 2340.83
+    },
+    {
+      "Date": "2000-06-01",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1695.05
+    },
+    {
+      "Date": "2000-06-02",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3848.06
+    },
+    {
+      "Date": "2000-06-03",
+      "Stock Index": "S&P 500",
+      "Open Price": 4303.91
+    },
+    {
+      "Date": "2000-06-04",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1402.55
+    },
+    {
+      "Date": "2000-06-05",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1959.5
+    },
+    {
+      "Date": "2000-06-06",
+      "Stock Index": "S&P 500",
+      "Open Price": 1567.89
+    },
+    {
+      "Date": "2000-06-07",
+      "Stock Index": "S&P 500",
+      "Open Price": 2391.77
+    },
+    {
+      "Date": "2000-06-08",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2801.4
+    },
+    {
+      "Date": "2000-06-09",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3995.31
+    },
+    {
+      "Date": "2000-06-10",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3604.59
+    },
+    {
+      "Date": "2000-06-11",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3483.71
+    },
+    {
+      "Date": "2000-06-12",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2409.5
+    },
+    {
+      "Date": "2000-06-13",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4365.79
+    },
+    {
+      "Date": "2000-06-14",
+      "Stock Index": "S&P 500",
+      "Open Price": 2885.15
+    },
+    {
+      "Date": "2000-06-15",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4916.42
+    },
+    {
+      "Date": "2000-06-16",
+      "Stock Index": "S&P 500",
+      "Open Price": 3536.57
+    },
+    {
+      "Date": "2000-06-17",
+      "Stock Index": "S&P 500",
+      "Open Price": 1505.06
+    },
+    {
+      "Date": "2000-06-18",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3704.71
+    },
+    {
+      "Date": "2000-06-19",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2300.42
+    },
+    {
+      "Date": "2000-06-20",
+      "Stock Index": "NASDAQ",
+      "Open Price": 3745.31
+    },
+    {
+      "Date": "2000-06-21",
+      "Stock Index": "Dow Jones",
+      "Open Price": 1278.56
+    },
+    {
+      "Date": "2000-06-22",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1699.53
+    },
+    {
+      "Date": "2000-06-23",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4422.95
+    },
+    {
+      "Date": "2000-06-24",
+      "Stock Index": "S&P 500",
+      "Open Price": 1908.72
+    },
+    {
+      "Date": "2000-06-25",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4348.16
+    },
+    {
+      "Date": "2000-06-26",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2117.1
+    },
+    {
+      "Date": "2000-06-27",
+      "Stock Index": "S&P 500",
+      "Open Price": 3571.53
+    },
+    {
+      "Date": "2000-06-28",
+      "Stock Index": "S&P 500",
+      "Open Price": 3776.6
+    },
+    {
+      "Date": "2000-06-29",
+      "Stock Index": "S&P 500",
+      "Open Price": 3050.62
+    },
+    {
+      "Date": "2000-06-30",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2221.24
+    },
+    {
+      "Date": "2000-07-01",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1850.58
+    },
+    {
+      "Date": "2000-07-02",
+      "Stock Index": "S&P 500",
+      "Open Price": 1132.76
+    },
+    {
+      "Date": "2000-07-03",
+      "Stock Index": "S&P 500",
+      "Open Price": 2215.79
+    },
+    {
+      "Date": "2000-07-04",
+      "Stock Index": "S&P 500",
+      "Open Price": 3612.65
+    },
+    {
+      "Date": "2000-07-05",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4753.22
+    },
+    {
+      "Date": "2000-07-06",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4484.82
+    },
+    {
+      "Date": "2000-07-07",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4064.26
+    },
+    {
+      "Date": "2000-07-08",
+      "Stock Index": "Dow Jones",
+      "Open Price": 4153.79
+    },
+    {
+      "Date": "2000-07-09",
+      "Stock Index": "S&P 500",
+      "Open Price": 3659.94
+    },
+    {
+      "Date": "2000-07-10",
+      "Stock Index": "NASDAQ",
+      "Open Price": 2041.15
+    },
+    {
+      "Date": "2000-07-11",
+      "Stock Index": "S&P 500",
+      "Open Price": 4628.78
+    },
+    {
+      "Date": "2000-07-12",
+      "Stock Index": "S&P 500",
+      "Open Price": 3682.93
+    },
+    {
+      "Date": "2000-07-13",
+      "Stock Index": "Dow Jones",
+      "Open Price": 3241.76
+    },
+    {
+      "Date": "2000-07-14",
+      "Stock Index": "NASDAQ",
+      "Open Price": 1443.96
+    },
+    {
+      "Date": "2000-07-15",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2788.22
+    },
+    {
+      "Date": "2000-07-16",
+      "Stock Index": "Dow Jones",
+      "Open Price": 2841.43
+    },
+    {
+      "Date": "2000-07-17",
+      "Stock Index": "NASDAQ",
+      "Open Price": 4458.25
+    },
+    {
+      "Date": "2000-07-18",
+      "Stock Index": "S&P 500",
+      "Open Price": 3186.59
+    }
+  ],
+  "sql": "SELECT \"Date\", \"Stock Index\", \"Open Price\"\nFROM finance_economics_dataset\nORDER BY \"Date\" ASC\nLIMIT 200;"
+}

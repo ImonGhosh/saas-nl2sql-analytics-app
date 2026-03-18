@@ -179,6 +179,40 @@ def _save_conversation(user_id: str, session_id: str, messages: List[Dict[str, A
         json.dump(messages, handle, indent=2)
 
 
+def _chart_memory_path(user_id: str) -> Path:
+    safe_user = Path(user_id).name
+    return MEMORY_DIR / "charts" / safe_user / "latest.json"
+
+
+def _serialize_chart_response(response: ChartResponse) -> Dict[str, Any]:
+    if hasattr(response, "model_dump"):
+        return response.model_dump()
+    return response.dict()
+
+
+def _save_chart(user_id: str, response: ChartResponse) -> None:
+    file_path = _chart_memory_path(user_id)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _serialize_chart_response(response)
+    with file_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, default=str)
+
+
+def _load_chart(user_id: str) -> Optional[ChartResponse]:
+    file_path = _chart_memory_path(user_id)
+    if not file_path.exists():
+        return None
+    with file_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return ChartResponse(**payload)
+
+
+def _delete_chart(user_id: str) -> None:
+    file_path = _chart_memory_path(user_id)
+    if file_path.exists():
+        file_path.unlink()
+
+
 init_mcp_db()
 
 
@@ -249,6 +283,7 @@ async def mcp_disconnect(
 ) -> str:
     user_id = _get_user_id(creds)
     disconnect_user(user_id)
+    _delete_chart(user_id)
     return "Disconnected"
 
 
@@ -362,4 +397,19 @@ async def charts_query(
             detail=str(exc) if debug else "Chart agent failed.",
         ) from exc
 
+    _save_chart(user_id, response)
     return response
+
+
+@app.get("/charts/last", response_model=ChartResponse)
+async def charts_last(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartResponse:
+    user_id = _get_user_id(creds)
+    chart = _load_chart(user_id)
+    if not chart:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No saved chart found.",
+        )
+    return chart
