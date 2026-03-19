@@ -9,6 +9,8 @@ import {
 } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import type { VisualizationSpec } from "vega-embed";
+import ChartLibrary, { type LibraryChart } from "./ChartLibrary";
 import SqlChatbot from "./SqlChatbot";
 import AnalyticsAgent from "./AnalyticsAgent";
 
@@ -28,6 +30,27 @@ export default function LandingPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [libraryCharts, setLibraryCharts] = useState<LibraryChart[]>([]);
+
+  const parseLibraryItem = (item: {
+    summary?: string;
+    chart_spec?: VisualizationSpec;
+    data?: Record<string, unknown>[];
+    sql?: string;
+    saved_at?: string;
+  }): LibraryChart | null => {
+    if (!item.chart_spec || typeof item.chart_spec !== "object") {
+      return null;
+    }
+    const data = Array.isArray(item.data) ? item.data : [];
+    return {
+      spec: item.chart_spec,
+      data,
+      summary: typeof item.summary === "string" ? item.summary : undefined,
+      sql: typeof item.sql === "string" ? item.sql : undefined,
+      savedAt: typeof item.saved_at === "string" ? item.saved_at : "",
+    };
+  };
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -114,6 +137,55 @@ export default function LandingPage() {
     };
   }, [getToken, isSignedIn, isLoaded]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLibrary = async () => {
+      if (!isConnected || activeTab !== "analytics" || !isSignedIn) {
+        return;
+      }
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) return;
+
+        const response = await fetch(`${backendUrl}/charts/library`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status}).`);
+        }
+
+        const payload = (await response.json()) as {
+          charts?: Array<{
+            summary?: string;
+            chart_spec?: VisualizationSpec;
+            data?: Record<string, unknown>[];
+            sql?: string;
+            saved_at?: string;
+          }>;
+        };
+
+        const items = Array.isArray(payload.charts) ? payload.charts : [];
+        const parsed = items
+          .map(parseLibraryItem)
+          .filter((item): item is LibraryChart => item !== null);
+
+        if (isActive) setLibraryCharts(parsed);
+      } catch {
+        if (isActive) setLibraryCharts([]);
+      }
+    };
+
+    void loadLibrary();
+
+    return () => {
+      isActive = false;
+    };
+  }, [getToken, isConnected, activeTab, isSignedIn]);
+
   const handleDisconnect = async () => {
     try {
       const token = await getToken({ template: clerkJwtTemplate });
@@ -129,6 +201,7 @@ export default function LandingPage() {
       });
     } finally {
       setIsConnected(false);
+      setLibraryCharts([]);
     }
   };
 
@@ -206,7 +279,13 @@ export default function LandingPage() {
 
       <SignedIn>
         <section className="flex min-h-[calc(100vh-73px)] w-full items-start justify-center px-6 py-12">
-          <div className="w-full max-w-4xl">
+          <div
+            className={`w-full ${
+              isConnected && activeTab === "analytics"
+                ? "max-w-6xl"
+                : "max-w-4xl"
+            }`}
+          >
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/80 p-2 shadow-sm">
               <button
                 type="button"
@@ -232,29 +311,35 @@ export default function LandingPage() {
               </button>
             </div>
 
-            <div
-              className={`mt-10 rounded-2xl border ${
-                isConnected && activeTab === "sql"
-                  ? "border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm"
-                  : "border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center"
-              }`}>
-              {isStatusLoading ? (
+            {isStatusLoading ? (
+              <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
                 <div className="flex flex-col items-center justify-center gap-3 text-slate-600">
                   <span
                     className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
                     aria-hidden="true"
                   />
-                  <p className="text-sm font-semibold">
-                    Loading your data...
-                  </p>
+                  <p className="text-sm font-semibold">Loading your data...</p>
                 </div>
-                ) : isConnected ? (
-                activeTab === "sql" ? (
+              </div>
+            ) : isConnected ? (
+              activeTab === "sql" ? (
+                <div className="mt-10 rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
                   <SqlChatbot onLogout={handleDisconnect} />
-                ) : (
-                  <AnalyticsAgent onLogout={handleDisconnect} />
-                )
-                ) : (
+                </div>
+              ) : (
+                <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
+                  <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
+                    <AnalyticsAgent
+                      onLogout={handleDisconnect}
+                      libraryCharts={libraryCharts}
+                      setLibraryCharts={setLibraryCharts}
+                    />
+                  </div>
+                  <ChartLibrary charts={libraryCharts} maxCharts={4} />
+                </div>
+              )
+            ) : (
+              <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
@@ -265,8 +350,8 @@ export default function LandingPage() {
                 >
                   +
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </section>
       </SignedIn>

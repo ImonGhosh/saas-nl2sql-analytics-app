@@ -115,6 +115,21 @@ class ChartQueryRequest(BaseModel):
     question: str = Field(min_length=1)
 
 
+class ChartLibraryRequest(BaseModel):
+    summary: str
+    chart_spec: Dict[str, Any]
+    data: List[Dict[str, Any]]
+    sql: str
+
+
+class ChartLibraryItem(ChartLibraryRequest):
+    saved_at: str
+
+
+class ChartLibraryResponse(BaseModel):
+    charts: List[ChartLibraryItem]
+
+
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
     for attr in ("sub", "user_id"):
@@ -234,6 +249,43 @@ def _delete_suggestions(user_id: str) -> None:
         file_path.unlink()
 
 
+def _chart_library_path(user_id: str) -> Path:
+    safe_user = Path(user_id).name
+    return MEMORY_DIR / "charts" / safe_user / "library.json"
+
+
+def _load_library(user_id: str) -> List[ChartLibraryItem]:
+    file_path = _chart_library_path(user_id)
+    if not file_path.exists():
+        return []
+    with file_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    charts = payload.get("charts", [])
+    if not isinstance(charts, list):
+        return []
+    return [ChartLibraryItem(**item) for item in charts]
+
+
+def _save_library(user_id: str, charts: List[ChartLibraryItem]) -> None:
+    file_path = _chart_library_path(user_id)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = []
+    for chart in charts:
+        if hasattr(chart, "model_dump"):
+            serialized.append(chart.model_dump())
+        else:
+            serialized.append(chart.dict())
+    payload = {"charts": serialized}
+    with file_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, default=str)
+
+
+def _delete_library(user_id: str) -> None:
+    file_path = _chart_library_path(user_id)
+    if file_path.exists():
+        file_path.unlink()
+
+
 init_mcp_db()
 
 
@@ -306,6 +358,7 @@ async def mcp_disconnect(
     disconnect_user(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)
+    _delete_library(user_id)
     return "Disconnected"
 
 
@@ -419,7 +472,6 @@ async def charts_query(
             detail=str(exc) if debug else "Chart agent failed.",
         ) from exc
 
-    _save_chart(user_id, response)
     return response
 
 
@@ -449,3 +501,37 @@ async def charts_suggestions(
             detail="No chart suggestions found.",
         )
     return suggestions
+
+
+@app.get("/charts/library", response_model=ChartLibraryResponse)
+async def charts_library(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartLibraryResponse:
+    user_id = _get_user_id(creds)
+    charts = _load_library(user_id)
+    return ChartLibraryResponse(charts=charts)
+
+
+@app.post("/charts/library", response_model=ChartLibraryItem)
+async def charts_library_save(
+    payload: ChartLibraryRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartLibraryItem:
+    user_id = _get_user_id(creds)
+    charts = _load_library(user_id)
+    if len(charts) >= 4:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Chart library limit reached (max 4).",
+        )
+    saved_at = datetime.utcnow().isoformat()
+    item = ChartLibraryItem(
+        summary=payload.summary,
+        chart_spec=payload.chart_spec,
+        data=payload.data,
+        sql=payload.sql,
+        saved_at=saved_at,
+    )
+    charts.append(item)
+    _save_library(user_id, charts)
+    return item

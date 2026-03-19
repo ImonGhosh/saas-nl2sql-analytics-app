@@ -1,0 +1,284 @@
+{
+  "charts": [
+    {
+      "summary": "Line chart of monthly revenue growth percentage by branch (Jan\u2013Apr 2025). Each branch is shown as a separate line; tooltips include revenue, previous revenue, and growth percentage for each month.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Monthly Revenue Growth (%) by Branch",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "line",
+          "point": true
+        },
+        "encoding": {
+          "x": {
+            "field": "report_month",
+            "type": "temporal",
+            "title": "Month"
+          },
+          "y": {
+            "field": "revenue_growth_pct",
+            "type": "quantitative",
+            "title": "Revenue Growth (%)",
+            "axis": {
+              "format": ".2f"
+            }
+          },
+          "color": {
+            "field": "branch_name",
+            "type": "nominal",
+            "title": "Branch"
+          },
+          "tooltip": [
+            {
+              "field": "branch_name",
+              "type": "nominal",
+              "title": "Branch"
+            },
+            {
+              "field": "report_month",
+              "type": "temporal",
+              "title": "Month"
+            },
+            {
+              "field": "revenue_usd",
+              "type": "quantitative",
+              "title": "Revenue (USD)"
+            },
+            {
+              "field": "prev_revenue_usd",
+              "type": "quantitative",
+              "title": "Prev Revenue (USD)"
+            },
+            {
+              "field": "revenue_growth_pct",
+              "type": "quantitative",
+              "title": "Growth (%)"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-01-01",
+          "revenue_usd": "1250000.00",
+          "prev_revenue_usd": null,
+          "revenue_growth_pct": null
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-02-01",
+          "revenue_usd": "1285000.00",
+          "prev_revenue_usd": "1250000.00",
+          "revenue_growth_pct": "2.80"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-03-01",
+          "revenue_usd": "1310000.00",
+          "prev_revenue_usd": "1285000.00",
+          "revenue_growth_pct": "1.95"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-04-01",
+          "revenue_usd": "1335000.00",
+          "prev_revenue_usd": "1310000.00",
+          "revenue_growth_pct": "1.91"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-01-01",
+          "revenue_usd": "980000.00",
+          "prev_revenue_usd": null,
+          "revenue_growth_pct": null
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-02-01",
+          "revenue_usd": "995000.00",
+          "prev_revenue_usd": "980000.00",
+          "revenue_growth_pct": "1.53"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-03-01",
+          "revenue_usd": "1008000.00",
+          "prev_revenue_usd": "995000.00",
+          "revenue_growth_pct": "1.31"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-04-01",
+          "revenue_usd": "1022000.00",
+          "prev_revenue_usd": "1008000.00",
+          "revenue_growth_pct": "1.39"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-01-01",
+          "revenue_usd": "1420000.00",
+          "prev_revenue_usd": null,
+          "revenue_growth_pct": null
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-02-01",
+          "revenue_usd": "1455000.00",
+          "prev_revenue_usd": "1420000.00",
+          "revenue_growth_pct": "2.46"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-03-01",
+          "revenue_usd": "1478000.00",
+          "prev_revenue_usd": "1455000.00",
+          "revenue_growth_pct": "1.58"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-04-01",
+          "revenue_usd": "1502000.00",
+          "prev_revenue_usd": "1478000.00",
+          "revenue_growth_pct": "1.62"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-01-01",
+          "revenue_usd": "1095000.00",
+          "prev_revenue_usd": null,
+          "revenue_growth_pct": null
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-02-01",
+          "revenue_usd": "1110000.00",
+          "prev_revenue_usd": "1095000.00",
+          "revenue_growth_pct": "1.37"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-03-01",
+          "revenue_usd": "1128000.00",
+          "prev_revenue_usd": "1110000.00",
+          "revenue_growth_pct": "1.62"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-04-01",
+          "revenue_usd": "1146000.00",
+          "prev_revenue_usd": "1128000.00",
+          "revenue_growth_pct": "1.60"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-01-01",
+          "revenue_usd": "1180000.00",
+          "prev_revenue_usd": null,
+          "revenue_growth_pct": null
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-02-01",
+          "revenue_usd": "1205000.00",
+          "prev_revenue_usd": "1180000.00",
+          "revenue_growth_pct": "2.12"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-03-01",
+          "revenue_usd": "1220000.00",
+          "prev_revenue_usd": "1205000.00",
+          "revenue_growth_pct": "1.24"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-04-01",
+          "revenue_usd": "1248000.00",
+          "prev_revenue_usd": "1220000.00",
+          "revenue_growth_pct": "2.30"
+        }
+      ],
+      "sql": "WITH monthly AS (\n  SELECT\n    branch_name,\n    date_trunc('month', report_month)::date AS month,\n    SUM(revenue_usd) AS revenue_usd\n  FROM public.branch_finance_kpis\n  GROUP BY branch_name, date_trunc('month', report_month)\n)\nSELECT\n  branch_name,\n  month AS report_month,\n  revenue_usd,\n  LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) AS prev_revenue_usd,\n  ROUND(\n    CASE WHEN LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) IS NULL THEN NULL\n         WHEN LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) = 0 THEN NULL\n         ELSE (revenue_usd - LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month))\n              / LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) * 100\n    END\n  ,2) AS revenue_growth_pct\nFROM monthly\nORDER BY branch_name, month\nLIMIT 200;",
+      "saved_at": "2026-03-19T00:07:40.492394"
+    },
+    {
+      "summary": "Top 5 branches by average transaction value over the latest 12-month window (filtered to the most recent 12 months). Frankfurt Main leads with an average transaction value of $914.50, followed by Berlin Central ($856.85), Munich West ($822.15), Hamburg Port ($805.31), and Cologne South ($764.05). Each branch in the result has 4 reporting periods.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Average Transaction Value by Branch (Last 12 Months)",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "bar"
+        },
+        "encoding": {
+          "x": {
+            "field": "branch_name",
+            "type": "nominal",
+            "title": "Branch",
+            "sort": {
+              "field": "avg_transaction_value_usd",
+              "order": "descending"
+            }
+          },
+          "y": {
+            "field": "avg_transaction_value_usd",
+            "type": "quantitative",
+            "title": "Average Transaction Value (USD)"
+          },
+          "tooltip": [
+            {
+              "field": "branch_name",
+              "type": "nominal",
+              "title": "Branch"
+            },
+            {
+              "field": "periods",
+              "type": "quantitative",
+              "title": "Periods"
+            },
+            {
+              "field": "avg_transaction_value_usd",
+              "type": "quantitative",
+              "title": "Avg Transaction Value (USD)"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "branch_name": "Frankfurt Main",
+          "periods": 4,
+          "avg_transaction_value_usd": "914.50"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "periods": 4,
+          "avg_transaction_value_usd": "856.85"
+        },
+        {
+          "branch_name": "Munich West",
+          "periods": 4,
+          "avg_transaction_value_usd": "822.15"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "periods": 4,
+          "avg_transaction_value_usd": "805.31"
+        },
+        {
+          "branch_name": "Cologne South",
+          "periods": 4,
+          "avg_transaction_value_usd": "764.05"
+        }
+      ],
+      "sql": "WITH latest AS (\n  SELECT max(report_month) AS max_month FROM public.branch_finance_kpis\n),\nfiltered AS (\n  SELECT * FROM public.branch_finance_kpis, latest\n  WHERE report_month >= (latest.max_month - INTERVAL '11 months')\n    AND avg_transaction_value_usd IS NOT NULL\n)\nSELECT branch_name,\n       COUNT(*) AS periods,\n       ROUND(AVG(avg_transaction_value_usd)::numeric, 2) AS avg_transaction_value_usd\nFROM filtered\nGROUP BY branch_name\nORDER BY avg_transaction_value_usd DESC\nLIMIT 200;",
+      "saved_at": "2026-03-19T00:08:51.959175"
+    }
+  ]
+}

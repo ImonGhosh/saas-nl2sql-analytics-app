@@ -3,8 +3,15 @@
 import { useAuth } from "@clerk/nextjs";
 import { BarChart3, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from "react";
 import type { VisualizationSpec } from "vega-embed";
+import type { LibraryChart } from "./ChartLibrary";
 
 const VegaLite = dynamic(
   () => import("react-vega").then((mod) => mod.VegaLite),
@@ -13,6 +20,8 @@ const VegaLite = dynamic(
 
 type AnalyticsAgentProps = {
   onLogout: () => void;
+  libraryCharts: LibraryChart[];
+  setLibraryCharts: Dispatch<SetStateAction<LibraryChart[]>>;
 };
 
 const backendUrl =
@@ -27,12 +36,17 @@ type ChartPayload = {
   sql?: string;
 };
 
-export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
+export default function AnalyticsAgent({
+  onLogout,
+  libraryCharts,
+  setLibraryCharts,
+}: AnalyticsAgentProps) {
   const { getToken } = useAuth();
   const [chartInput, setChartInput] = useState("");
   const [lastRequest, setLastRequest] = useState<string | null>(null);
   const [chartPayload, setChartPayload] = useState<ChartPayload | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
@@ -55,52 +69,6 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
       sql: typeof payload.sql === "string" ? payload.sql : undefined,
     };
   };
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadLastChart = async () => {
-      try {
-        const token = await getToken({ template: clerkJwtTemplate });
-        if (!token) return;
-
-        const response = await fetch(`${backendUrl}/charts/last`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.status === 404) return;
-        if (!response.ok) {
-          throw new Error(`Request failed (${response.status}).`);
-        }
-
-        const payload = (await response.json()) as {
-          summary?: string;
-          chart_spec?: VisualizationSpec;
-          data?: Record<string, unknown>[];
-          sql?: string;
-        };
-
-        if (!isActive) return;
-        const parsed = buildChartPayload(payload);
-        if (parsed) {
-          setChartPayload(parsed);
-        }
-      } catch (error) {
-        if (!isActive) return;
-        const message =
-          error instanceof Error ? error.message : "Failed to load chart.";
-        setErrorMessage(message);
-      }
-    };
-
-    void loadLastChart();
-
-    return () => {
-      isActive = false;
-    };
-  }, [getToken]);
 
   useEffect(() => {
     let isActive = true;
@@ -197,6 +165,66 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
     }
   };
 
+  const handleSaveToLibrary = async () => {
+    if (!chartPayload || isSaving || libraryCharts.length >= 4) return;
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch(`${backendUrl}/charts/library`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          summary: chartPayload.summary || "Saved chart",
+          chart_spec: chartPayload.spec,
+          data: chartPayload.data,
+          sql: chartPayload.sql || "",
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        summary?: string;
+        chart_spec?: VisualizationSpec;
+        data?: Record<string, unknown>[];
+        sql?: string;
+        saved_at?: string;
+        detail?: string;
+      };
+
+      if (!response.ok) {
+        const detail = payload?.detail || `Request failed (${response.status}).`;
+        throw new Error(detail);
+      }
+
+      const parsed = buildChartPayload(payload);
+      if (!parsed) {
+        throw new Error("Library item missing chart spec.");
+      }
+
+      setLibraryCharts((prev) => [
+        ...prev,
+        {
+          ...parsed,
+          savedAt: typeof payload.saved_at === "string" ? payload.saved_at : "",
+        },
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to save chart.";
+      setErrorMessage(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -205,7 +233,6 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
           Describe the KPI or chart you want to generate.
         </p>
       </div>
-
       <form
         onSubmit={handleCreate}
         className="rounded-xl border border-slate-200 bg-slate-50 p-4"
@@ -293,6 +320,16 @@ export default function AnalyticsAgent({ onLogout }: AnalyticsAgentProps) {
                 </pre>
               </details>
             )}
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={handleSaveToLibrary}
+                disabled={isSaving || libraryCharts.length >= 4}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSaving ? "Saving..." : "Save to Library"}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
