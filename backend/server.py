@@ -535,3 +535,20 @@ async def charts_library_save(
     charts.append(item)
     _save_library(user_id, charts)
     return item
+
+
+@app.delete("/charts/library/{saved_at}", response_model=ChartLibraryResponse)
+async def charts_library_delete(
+    saved_at: str,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartLibraryResponse:
+    user_id = _get_user_id(creds)
+    charts = _load_library(user_id)
+    filtered = [chart for chart in charts if chart.saved_at != saved_at]
+    if len(filtered) == len(charts):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chart not found in library.",
+        )
+    _save_library(user_id, filtered)
+    return ChartLibraryResponse(charts=filtered)

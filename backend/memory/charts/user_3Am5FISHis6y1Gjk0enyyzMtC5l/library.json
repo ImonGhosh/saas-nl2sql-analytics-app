@@ -279,6 +279,78 @@
       ],
       "sql": "WITH latest AS (\n  SELECT max(report_month) AS max_month FROM public.branch_finance_kpis\n),\nfiltered AS (\n  SELECT * FROM public.branch_finance_kpis, latest\n  WHERE report_month >= (latest.max_month - INTERVAL '11 months')\n    AND avg_transaction_value_usd IS NOT NULL\n)\nSELECT branch_name,\n       COUNT(*) AS periods,\n       ROUND(AVG(avg_transaction_value_usd)::numeric, 2) AS avg_transaction_value_usd\nFROM filtered\nGROUP BY branch_name\nORDER BY avg_transaction_value_usd DESC\nLIMIT 200;",
       "saved_at": "2026-03-19T00:08:51.959175"
+    },
+    {
+      "summary": "The average loan default rate decreased steadily from 2.21% on 2025-01-01 to 2.008% on 2025-04-01, while the number of branches reporting remained constant at 5 each month.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Average Loan Default Rate (%) Over Time",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "line",
+          "point": true
+        },
+        "encoding": {
+          "x": {
+            "field": "report_month",
+            "type": "temporal",
+            "title": "Report Month"
+          },
+          "y": {
+            "field": "avg_default_rate_pct",
+            "type": "quantitative",
+            "title": "Avg Default Rate (%)"
+          },
+          "size": {
+            "field": "branches_reporting",
+            "type": "quantitative",
+            "title": "Branches Reporting"
+          },
+          "tooltip": [
+            {
+              "field": "report_month",
+              "type": "temporal",
+              "title": "Report Month"
+            },
+            {
+              "field": "avg_default_rate_pct",
+              "type": "quantitative",
+              "title": "Avg Default Rate (%)"
+            },
+            {
+              "field": "branches_reporting",
+              "type": "quantitative",
+              "title": "Branches Reporting"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "report_month": "2025-01-01",
+          "avg_default_rate_pct": "2.2100000000000000",
+          "branches_reporting": 5
+        },
+        {
+          "report_month": "2025-02-01",
+          "avg_default_rate_pct": "2.1380000000000000",
+          "branches_reporting": 5
+        },
+        {
+          "report_month": "2025-03-01",
+          "avg_default_rate_pct": "2.0720000000000000",
+          "branches_reporting": 5
+        },
+        {
+          "report_month": "2025-04-01",
+          "avg_default_rate_pct": "2.0080000000000000",
+          "branches_reporting": 5
+        }
+      ],
+      "sql": "SELECT report_month::date AS report_month,\n       AVG(loan_default_rate_pct) AS avg_default_rate_pct,\n       COUNT(*) AS branches_reporting\nFROM public.branch_finance_kpis\nWHERE loan_default_rate_pct IS NOT NULL\nGROUP BY report_month\nORDER BY report_month\nLIMIT 200;",
+      "saved_at": "2026-03-19T00:45:06.523738"
     }
   ]
 }

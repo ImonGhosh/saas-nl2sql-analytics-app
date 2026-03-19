@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { VisualizationSpec } from "vega-embed";
 
@@ -19,6 +20,8 @@ export type LibraryChart = {
 type ChartLibraryProps = {
   charts: LibraryChart[];
   maxCharts: number;
+  onSelect?: (chart: LibraryChart) => void;
+  onDelete?: (chart: LibraryChart) => void;
 };
 
 const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
@@ -69,7 +72,12 @@ const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
   };
 };
 
-export default function ChartLibrary({ charts, maxCharts }: ChartLibraryProps) {
+export default function ChartLibrary({
+  charts,
+  maxCharts,
+  onSelect,
+  onDelete,
+}: ChartLibraryProps) {
   return (
     <aside className="w-full rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm lg:w-64">
       <div className="flex items-center justify-between">
@@ -87,11 +95,33 @@ export default function ChartLibrary({ charts, maxCharts }: ChartLibraryProps) {
           {charts.map((chart, index) => (
             <div
               key={`${chart.savedAt}-${index}`}
-              className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm"
-            >
+              className="group relative rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition hover:border-slate-300"
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelect?.(chart)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect?.(chart);
+                }
+              }}>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(chart);
+                  }}
+                  className="absolute right-2 top-2 z-10 rounded-full border border-slate-200 bg-white/90 p-1 text-slate-500 opacity-0 shadow-sm transition hover:text-slate-700 group-hover:opacity-100"
+                  aria-label="Delete chart"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
               <VegaLite
                 spec={buildThumbnailSpec(chart.spec)}
                 data={{ values: chart.data }}
+                actions={false}
                 className="w-full"
                 style={{ width: "100%" }}
               />

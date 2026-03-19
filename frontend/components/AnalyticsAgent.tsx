@@ -22,6 +22,7 @@ type AnalyticsAgentProps = {
   onLogout: () => void;
   libraryCharts: LibraryChart[];
   setLibraryCharts: Dispatch<SetStateAction<LibraryChart[]>>;
+  selectedChart?: LibraryChart | null;
 };
 
 const backendUrl =
@@ -40,6 +41,7 @@ export default function AnalyticsAgent({
   onLogout,
   libraryCharts,
   setLibraryCharts,
+  selectedChart,
 }: AnalyticsAgentProps) {
   const { getToken } = useAuth();
   const [chartInput, setChartInput] = useState("");
@@ -106,6 +108,16 @@ export default function AnalyticsAgent({
       isActive = false;
     };
   }, [getToken]);
+
+  useEffect(() => {
+    if (!selectedChart) return;
+    setChartPayload({
+      spec: selectedChart.spec,
+      data: selectedChart.data,
+      summary: selectedChart.summary,
+      sql: selectedChart.sql,
+    });
+  }, [selectedChart]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

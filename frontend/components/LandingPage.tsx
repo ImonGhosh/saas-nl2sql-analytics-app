@@ -31,6 +31,7 @@ export default function LandingPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
   const [libraryCharts, setLibraryCharts] = useState<LibraryChart[]>([]);
+  const [selectedChart, setSelectedChart] = useState<LibraryChart | null>(null);
 
   const parseLibraryItem = (item: {
     summary?: string;
@@ -202,6 +203,56 @@ export default function LandingPage() {
     } finally {
       setIsConnected(false);
       setLibraryCharts([]);
+      setSelectedChart(null);
+    }
+  };
+
+  const handleSelectChart = (chart: LibraryChart) => {
+    setSelectedChart(chart);
+  };
+
+  const handleDeleteChart = async (chart: LibraryChart) => {
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) return;
+
+      const response = await fetch(
+        `${backendUrl}/charts/library/${encodeURIComponent(chart.savedAt)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status}).`);
+      }
+
+      const payload = (await response.json()) as {
+        charts?: Array<{
+          summary?: string;
+          chart_spec?: VisualizationSpec;
+          data?: Record<string, unknown>[];
+          sql?: string;
+          saved_at?: string;
+        }>;
+      };
+
+      const items = Array.isArray(payload.charts) ? payload.charts : [];
+      const parsed = items
+        .map(parseLibraryItem)
+        .filter((item): item is LibraryChart => item !== null);
+
+      setLibraryCharts(parsed);
+      if (selectedChart?.savedAt === chart.savedAt) {
+        setSelectedChart(null);
+      }
+    } catch {
+      if (selectedChart?.savedAt === chart.savedAt) {
+        setSelectedChart(null);
+      }
     }
   };
 
@@ -333,9 +384,15 @@ export default function LandingPage() {
                       onLogout={handleDisconnect}
                       libraryCharts={libraryCharts}
                       setLibraryCharts={setLibraryCharts}
+                      selectedChart={selectedChart}
                     />
                   </div>
-                  <ChartLibrary charts={libraryCharts} maxCharts={4} />
+                  <ChartLibrary
+                    charts={libraryCharts}
+                    maxCharts={4}
+                    onSelect={handleSelectChart}
+                    onDelete={handleDeleteChart}
+                  />
                 </div>
               )
             ) : (
