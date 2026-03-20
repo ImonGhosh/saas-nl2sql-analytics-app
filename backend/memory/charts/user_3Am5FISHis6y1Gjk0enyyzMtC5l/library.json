@@ -351,6 +351,97 @@
       ],
       "sql": "SELECT report_month::date AS report_month,\n       AVG(loan_default_rate_pct) AS avg_default_rate_pct,\n       COUNT(*) AS branches_reporting\nFROM public.branch_finance_kpis\nWHERE loan_default_rate_pct IS NOT NULL\nGROUP BY report_month\nORDER BY report_month\nLIMIT 200;",
       "saved_at": "2026-03-19T00:45:06.523738"
+    },
+    {
+      "summary": "Dataset covers monthly customer accounts by region from 2025-01 to 2025-04. Only Germany appears: accounts increased from 57,400 (Jan) to 58,820 (Apr). Month-over-month growth values are: Jan N/A, Feb +0.94%, Mar +0.69%, Apr +0.82%. The chart below plots monthly customer accounts by region (line chart) and exposes previous month accounts and MoM growth in the tooltip.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Customer Accounts by Region (Monthly)",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "line",
+          "point": true,
+          "interpolate": "monotone"
+        },
+        "encoding": {
+          "x": {
+            "field": "month",
+            "type": "temporal",
+            "title": "Month"
+          },
+          "y": {
+            "field": "customer_accounts",
+            "type": "quantitative",
+            "title": "Customer Accounts"
+          },
+          "color": {
+            "field": "region",
+            "type": "nominal",
+            "title": "Region"
+          },
+          "tooltip": [
+            {
+              "field": "region",
+              "type": "nominal",
+              "title": "Region"
+            },
+            {
+              "field": "month",
+              "type": "temporal",
+              "title": "Month"
+            },
+            {
+              "field": "customer_accounts",
+              "type": "quantitative",
+              "title": "Customer Accounts"
+            },
+            {
+              "field": "prev_customer_accounts",
+              "type": "quantitative",
+              "title": "Prev Month Accounts"
+            },
+            {
+              "field": "mom_growth_pct",
+              "type": "quantitative",
+              "title": "MoM Growth (%)"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "month": "2025-01-01",
+          "region": "Germany",
+          "customer_accounts": 57400,
+          "prev_customer_accounts": null,
+          "mom_growth_pct": null
+        },
+        {
+          "month": "2025-02-01",
+          "region": "Germany",
+          "customer_accounts": 57940,
+          "prev_customer_accounts": 57400,
+          "mom_growth_pct": "0.94"
+        },
+        {
+          "month": "2025-03-01",
+          "region": "Germany",
+          "customer_accounts": 58340,
+          "prev_customer_accounts": 57940,
+          "mom_growth_pct": "0.69"
+        },
+        {
+          "month": "2025-04-01",
+          "region": "Germany",
+          "customer_accounts": 58820,
+          "prev_customer_accounts": 58340,
+          "mom_growth_pct": "0.82"
+        }
+      ],
+      "sql": "WITH monthly AS (\n  SELECT\n    report_month::date AS month,\n    region,\n    SUM(customer_accounts) AS customer_accounts\n  FROM public.branch_finance_kpis\n  WHERE report_month >= date_trunc('month', current_date) - interval '36 months'\n  GROUP BY report_month, region\n)\nSELECT\n  month,\n  region,\n  customer_accounts,\n  LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) AS prev_customer_accounts,\n  ROUND(\n    CASE WHEN LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) IS NULL THEN NULL\n         WHEN LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) = 0 THEN NULL\n         ELSE (customer_accounts - LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month))::numeric\n              / LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) * 100\n    END\n  , 2) AS mom_growth_pct\nFROM monthly\nORDER BY region, month\nLIMIT 200;",
+      "saved_at": "2026-03-20T01:02:25.677602"
     }
   ]
 }
