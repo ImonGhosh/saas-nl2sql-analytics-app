@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,8 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 
+from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_trace
+from llm_provider import build_openai_model
 from mcp_service import build_mcp_url
 
 
@@ -210,8 +213,10 @@ def _get_query_agent() -> Agent:
     if _QUERY_AGENT is not None:
         return _QUERY_AGENT
 
+    model_name = _get_chart_query_model()
+    model = build_openai_model(model_name)
     _QUERY_AGENT = Agent(
-        _get_chart_query_model(),
+        model,
         deps_type=ChartQueryDeps,
         instructions=(
             "You are a chart data agent for a Supabase Postgres database. "
@@ -237,8 +242,10 @@ def _get_spec_agent() -> Agent:
     if _SPEC_AGENT is not None:
         return _SPEC_AGENT
 
+    model_name = _get_chart_spec_model()
+    model = build_openai_model(model_name)
     _SPEC_AGENT = Agent(
-        _get_chart_spec_model(),
+        model,
         deps_type=ChartSpecDeps,
         instructions=(
             "You are a chart spec agent. Create a Vega-Lite spec from the provided data. "
@@ -459,6 +466,11 @@ async def run_chart_query_agent(
     access_token: str,
     project_ref: str,
     message_history: Optional[list[Dict[str, Any]]] = None,
+    trace_id: Optional[str] = None,
+    trace_name: Optional[str] = None,
+    trace_user_id: Optional[str] = None,
+    trace_session_id: Optional[str] = None,
+    trace_metadata: Optional[Dict[str, Any]] = None,
 ) -> ChartQueryResult:
     if not question or not question.strip():
         raise ValueError("Question is required.")
@@ -496,13 +508,40 @@ async def run_chart_query_agent(
     )
     agent = _get_query_agent()
     history = _build_message_history(message_history)
-    async with agent:
-        await agent.run(
-            question.strip(),
-            deps=deps,
-            toolsets=[server],
-            message_history=history,
-        )
+    trace = start_trace(
+        trace_id=trace_id,
+        name=trace_name,
+        user_id=trace_user_id,
+        session_id=trace_session_id,
+        metadata=trace_metadata,
+    )
+    span_metadata: Dict[str, Any] = {"model": _get_chart_query_model()}
+    span = start_span(trace, name="chart_query_agent.run", metadata=span_metadata, input=question)
+    start_ms = time.perf_counter()
+    try:
+        async with agent:
+            result = await agent.run(
+                question.strip(),
+                deps=deps,
+                toolsets=[server],
+                message_history=history,
+            )
+        prompt_tokens = extract_prompt_tokens(result)
+        if prompt_tokens is not None:
+            span_metadata["prompt_tokens"] = prompt_tokens
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = True
+        if last_sql:
+            span_metadata["sql"] = last_sql
+        end_span(span, metadata=span_metadata)
+    except Exception as exc:
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = False
+        span_metadata["error"] = str(exc)
+        if last_sql:
+            span_metadata["sql"] = last_sql
+        end_span(span, metadata=span_metadata, error=str(exc))
+        raise
 
     if not last_sql:
         raise RuntimeError("Chart query agent did not execute SQL.")
@@ -518,14 +557,42 @@ async def run_chart_spec_agent(
     sql: str,
     data: List[Dict[str, Any]],
     columns: Optional[List[str]] = None,
+    trace_id: Optional[str] = None,
+    trace_name: Optional[str] = None,
+    trace_user_id: Optional[str] = None,
+    trace_session_id: Optional[str] = None,
+    trace_metadata: Optional[Dict[str, Any]] = None,
 ) -> ChartResponse:
     deps = ChartSpecDeps(question=question, sql=sql, data=data, columns=columns)
     agent = _get_spec_agent()
-    async with agent:
-        result = await agent.run(
-            "Create the chart spec and summary based on the provided query results.",
-            deps=deps,
-        )
+    trace = start_trace(
+        trace_id=trace_id,
+        name=trace_name,
+        user_id=trace_user_id,
+        session_id=trace_session_id,
+        metadata=trace_metadata,
+    )
+    span_metadata: Dict[str, Any] = {"model": _get_chart_spec_model(), "sql": sql}
+    span = start_span(trace, name="chart_spec_agent.run", metadata=span_metadata)
+    start_ms = time.perf_counter()
+    try:
+        async with agent:
+            result = await agent.run(
+                "Create the chart spec and summary based on the provided query results.",
+                deps=deps,
+            )
+        prompt_tokens = extract_prompt_tokens(result)
+        if prompt_tokens is not None:
+            span_metadata["prompt_tokens"] = prompt_tokens
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = True
+        end_span(span, metadata=span_metadata)
+    except Exception as exc:
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = False
+        span_metadata["error"] = str(exc)
+        end_span(span, metadata=span_metadata, error=str(exc))
+        raise
 
     output = result.output
     return ChartResponse(

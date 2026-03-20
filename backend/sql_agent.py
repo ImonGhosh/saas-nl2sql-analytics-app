@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -7,6 +8,8 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 
+from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_trace
+from llm_provider import build_openai_model
 from mcp_service import build_mcp_url
 
 
@@ -168,8 +171,10 @@ def _get_agent() -> Agent:
     if _AGENT is not None:
         return _AGENT
 
+    model_name = _get_model_name()
+    model = build_openai_model(model_name)
     _AGENT = Agent(
-        _get_model_name(),
+        model,
         deps_type=SqlAgentDeps,
         instructions=(
             "You are a SQL assistant for a Supabase Postgres database. "
@@ -230,6 +235,11 @@ async def run_sql_agent(
     access_token: str,
     project_ref: str,
     message_history: Optional[list[Dict[str, Any]]] = None,
+    trace_id: Optional[str] = None,
+    trace_name: Optional[str] = None,
+    trace_user_id: Optional[str] = None,
+    trace_session_id: Optional[str] = None,
+    trace_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Optional[str]]:
     if not question or not question.strip():
         raise ValueError("Question is required.")
@@ -260,12 +270,39 @@ async def run_sql_agent(
     )
     agent = _get_agent()
     history = _build_message_history(message_history)
-    async with agent:
-        result = await agent.run(
-            question.strip(),
-            deps=deps,
-            toolsets=[server],
-            message_history=history,
-        )
+    trace = start_trace(
+        trace_id=trace_id,
+        name=trace_name,
+        user_id=trace_user_id,
+        session_id=trace_session_id,
+        metadata=trace_metadata,
+    )
+    span_metadata: Dict[str, Any] = {"model": _get_model_name()}
+    span = start_span(trace, name="sql_agent.run", metadata=span_metadata, input=question)
+    start_ms = time.perf_counter()
+    try:
+        async with agent:
+            result = await agent.run(
+                question.strip(),
+                deps=deps,
+                toolsets=[server],
+                message_history=history,
+            )
+        prompt_tokens = extract_prompt_tokens(result)
+        if prompt_tokens is not None:
+            span_metadata["prompt_tokens"] = prompt_tokens
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = True
+        if last_sql:
+            span_metadata["sql"] = last_sql
+        end_span(span, metadata=span_metadata)
+    except Exception as exc:
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = False
+        span_metadata["error"] = str(exc)
+        if last_sql:
+            span_metadata["sql"] = last_sql
+        end_span(span, metadata=span_metadata, error=str(exc))
+        raise
 
     return {"answer": str(result.output), "sql": last_sql}

@@ -386,6 +386,13 @@ async def sql_query(
     conversation = _load_conversation(user_id, session_id)
     message_history = conversation[-10:]
 
+    trace_id = uuid4().hex
+    trace_metadata = {
+        "user_id": user_id,
+        "session_id": session_id,
+        "project_ref": tokens["project_ref"],
+        "endpoint": "POST /sql/query",
+    }
     try:
         result = await run_sql_agent(
             question=payload.question,
@@ -393,6 +400,11 @@ async def sql_query(
             access_token=tokens["access_token"],
             project_ref=tokens["project_ref"],
             message_history=message_history,
+            trace_id=trace_id,
+            trace_name="POST /sql/query",
+            trace_user_id=user_id,
+            trace_session_id=session_id,
+            trace_metadata=trace_metadata,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -446,18 +458,35 @@ async def charts_query(
             detail=str(exc),
         ) from exc
 
+    trace_id = uuid4().hex
+    trace_metadata = {
+        "user_id": user_id,
+        "session_id": None,
+        "project_ref": tokens["project_ref"],
+        "endpoint": "POST /charts/query",
+    }
     try:
         query_result = await run_chart_query_agent(
             question=payload.question,
             metadata=metadata,
             access_token=tokens["access_token"],
             project_ref=tokens["project_ref"],
+            trace_id=trace_id,
+            trace_name="POST /charts/query",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
         )
         response = await run_chart_spec_agent(
             question=payload.question,
             sql=query_result.sql,
             data=query_result.data,
             columns=query_result.columns,
+            trace_id=trace_id,
+            trace_name="POST /charts/query",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
         )
     except ValueError as exc:
         raise HTTPException(

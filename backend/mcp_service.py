@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
+from uuid import uuid4
 
 import httpx
 from mcp import ClientSession, types
@@ -519,7 +520,21 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     metadata = await extract_metadata(user_id)
     _store_metadata(user_id, metadata)
     try:
-        suggestions = await run_chart_suggestions_agent(metadata=metadata)
+        trace_id = uuid4().hex
+        trace_metadata = {
+            "user_id": user_id,
+            "session_id": None,
+            "project_ref": project_ref,
+            "endpoint": "MCP auth callback",
+        }
+        suggestions = await run_chart_suggestions_agent(
+            metadata=metadata,
+            trace_id=trace_id,
+            trace_name="POST mcp/auth/callback",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
         _save_suggestions(user_id, suggestions)
     except Exception:
         logger.exception("Chart suggestions generation failed")

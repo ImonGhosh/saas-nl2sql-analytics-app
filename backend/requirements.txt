@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 openai
+langfuse
 python-dotenv
 python-multipart
 fastapi-clerk-auth

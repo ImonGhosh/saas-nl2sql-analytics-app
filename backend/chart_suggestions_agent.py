@@ -1,11 +1,14 @@
 import json
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
+from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_trace
+from llm_provider import build_openai_model
 
 class ChartSuggestions(BaseModel):
     suggestions: List[str] = Field(
@@ -34,8 +37,10 @@ def _get_suggestions_agent() -> Agent:
     if _SUGGESTIONS_AGENT is not None:
         return _SUGGESTIONS_AGENT
 
+    model_name = _get_suggestions_model()
+    model = build_openai_model(model_name)
     _SUGGESTIONS_AGENT = Agent(
-        _get_suggestions_model(),
+        model,
         deps_type=ChartSuggestionsDeps,
         instructions=(
             "You are an analytics suggestions agent. "
@@ -59,12 +64,40 @@ def _get_suggestions_agent() -> Agent:
 async def run_chart_suggestions_agent(
     *,
     metadata: Dict[str, Any],
+    trace_id: Optional[str] = None,
+    trace_name: Optional[str] = None,
+    trace_user_id: Optional[str] = None,
+    trace_session_id: Optional[str] = None,
+    trace_metadata: Optional[Dict[str, Any]] = None,
 ) -> ChartSuggestions:
     agent = _get_suggestions_agent()
     deps = ChartSuggestionsDeps(metadata=metadata)
-    async with agent:
-        result = await agent.run(
-            "Create concise chart suggestions based on the metadata.",
-            deps=deps,
-        )
+    trace = start_trace(
+        trace_id=trace_id,
+        name=trace_name,
+        user_id=trace_user_id,
+        session_id=trace_session_id,
+        metadata=trace_metadata,
+    )
+    span_metadata: Dict[str, Any] = {"model": _get_suggestions_model()}
+    span = start_span(trace, name="chart_suggestions_agent.run", metadata=span_metadata)
+    start_ms = time.perf_counter()
+    try:
+        async with agent:
+            result = await agent.run(
+                "Create concise chart suggestions based on the metadata.",
+                deps=deps,
+            )
+        prompt_tokens = extract_prompt_tokens(result)
+        if prompt_tokens is not None:
+            span_metadata["prompt_tokens"] = prompt_tokens
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = True
+        end_span(span, metadata=span_metadata)
+    except Exception as exc:
+        span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
+        span_metadata["success"] = False
+        span_metadata["error"] = str(exc)
+        end_span(span, metadata=span_metadata, error=str(exc))
+        raise
     return result.output
