@@ -8,3 +8,5 @@ fastapi-clerk-auth
 httpx
 mcp
 pydantic-ai
+redis
+supabase

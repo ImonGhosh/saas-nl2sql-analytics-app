@@ -1,385 +1,45 @@
 {
   "charts": [
     {
-      "summary": "Line chart of monthly revenue growth percentage by branch (Jan\u2013Apr 2025). Each branch is shown as a separate line; tooltips include revenue, previous revenue, and growth percentage for each month.",
+      "summary": "Query result contains a single region (Germany) with a net profit margin of ~33.68% (0.3368414574). Germany\u2019s total net profit is $8,209,500, total revenue $24,372,000, total operating expense $16,162,500, average operating expense per branch $808,125, and 5 branches. The chart is a scatter plot of Net Profit Margin (y) vs Avg Operating Expense (x) with point size representing total net profit and color by region; tooltips show the numeric details.",
       "chart_spec": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Monthly Revenue Growth (%) by Branch",
+        "title": "Net Profit Margin vs Avg Operating Expense by Region",
         "data": {
           "name": "values"
         },
         "mark": {
-          "type": "line",
-          "point": true
+          "type": "point",
+          "filled": true,
+          "opacity": 0.85
         },
         "encoding": {
           "x": {
-            "field": "report_month",
-            "type": "temporal",
-            "title": "Month"
-          },
-          "y": {
-            "field": "revenue_growth_pct",
+            "field": "avg_operating_expense_usd",
             "type": "quantitative",
-            "title": "Revenue Growth (%)",
+            "title": "Avg Operating Expense (USD)",
             "axis": {
-              "format": ".2f"
-            }
-          },
-          "color": {
-            "field": "branch_name",
-            "type": "nominal",
-            "title": "Branch"
-          },
-          "tooltip": [
-            {
-              "field": "branch_name",
-              "type": "nominal",
-              "title": "Branch"
-            },
-            {
-              "field": "report_month",
-              "type": "temporal",
-              "title": "Month"
-            },
-            {
-              "field": "revenue_usd",
-              "type": "quantitative",
-              "title": "Revenue (USD)"
-            },
-            {
-              "field": "prev_revenue_usd",
-              "type": "quantitative",
-              "title": "Prev Revenue (USD)"
-            },
-            {
-              "field": "revenue_growth_pct",
-              "type": "quantitative",
-              "title": "Growth (%)"
-            }
-          ]
-        }
-      },
-      "data": [
-        {
-          "branch_name": "Berlin Central",
-          "report_month": "2025-01-01",
-          "revenue_usd": "1250000.00",
-          "prev_revenue_usd": null,
-          "revenue_growth_pct": null
-        },
-        {
-          "branch_name": "Berlin Central",
-          "report_month": "2025-02-01",
-          "revenue_usd": "1285000.00",
-          "prev_revenue_usd": "1250000.00",
-          "revenue_growth_pct": "2.80"
-        },
-        {
-          "branch_name": "Berlin Central",
-          "report_month": "2025-03-01",
-          "revenue_usd": "1310000.00",
-          "prev_revenue_usd": "1285000.00",
-          "revenue_growth_pct": "1.95"
-        },
-        {
-          "branch_name": "Berlin Central",
-          "report_month": "2025-04-01",
-          "revenue_usd": "1335000.00",
-          "prev_revenue_usd": "1310000.00",
-          "revenue_growth_pct": "1.91"
-        },
-        {
-          "branch_name": "Cologne South",
-          "report_month": "2025-01-01",
-          "revenue_usd": "980000.00",
-          "prev_revenue_usd": null,
-          "revenue_growth_pct": null
-        },
-        {
-          "branch_name": "Cologne South",
-          "report_month": "2025-02-01",
-          "revenue_usd": "995000.00",
-          "prev_revenue_usd": "980000.00",
-          "revenue_growth_pct": "1.53"
-        },
-        {
-          "branch_name": "Cologne South",
-          "report_month": "2025-03-01",
-          "revenue_usd": "1008000.00",
-          "prev_revenue_usd": "995000.00",
-          "revenue_growth_pct": "1.31"
-        },
-        {
-          "branch_name": "Cologne South",
-          "report_month": "2025-04-01",
-          "revenue_usd": "1022000.00",
-          "prev_revenue_usd": "1008000.00",
-          "revenue_growth_pct": "1.39"
-        },
-        {
-          "branch_name": "Frankfurt Main",
-          "report_month": "2025-01-01",
-          "revenue_usd": "1420000.00",
-          "prev_revenue_usd": null,
-          "revenue_growth_pct": null
-        },
-        {
-          "branch_name": "Frankfurt Main",
-          "report_month": "2025-02-01",
-          "revenue_usd": "1455000.00",
-          "prev_revenue_usd": "1420000.00",
-          "revenue_growth_pct": "2.46"
-        },
-        {
-          "branch_name": "Frankfurt Main",
-          "report_month": "2025-03-01",
-          "revenue_usd": "1478000.00",
-          "prev_revenue_usd": "1455000.00",
-          "revenue_growth_pct": "1.58"
-        },
-        {
-          "branch_name": "Frankfurt Main",
-          "report_month": "2025-04-01",
-          "revenue_usd": "1502000.00",
-          "prev_revenue_usd": "1478000.00",
-          "revenue_growth_pct": "1.62"
-        },
-        {
-          "branch_name": "Hamburg Port",
-          "report_month": "2025-01-01",
-          "revenue_usd": "1095000.00",
-          "prev_revenue_usd": null,
-          "revenue_growth_pct": null
-        },
-        {
-          "branch_name": "Hamburg Port",
-          "report_month": "2025-02-01",
-          "revenue_usd": "1110000.00",
-          "prev_revenue_usd": "1095000.00",
-          "revenue_growth_pct": "1.37"
-        },
-        {
-          "branch_name": "Hamburg Port",
-          "report_month": "2025-03-01",
-          "revenue_usd": "1128000.00",
-          "prev_revenue_usd": "1110000.00",
-          "revenue_growth_pct": "1.62"
-        },
-        {
-          "branch_name": "Hamburg Port",
-          "report_month": "2025-04-01",
-          "revenue_usd": "1146000.00",
-          "prev_revenue_usd": "1128000.00",
-          "revenue_growth_pct": "1.60"
-        },
-        {
-          "branch_name": "Munich West",
-          "report_month": "2025-01-01",
-          "revenue_usd": "1180000.00",
-          "prev_revenue_usd": null,
-          "revenue_growth_pct": null
-        },
-        {
-          "branch_name": "Munich West",
-          "report_month": "2025-02-01",
-          "revenue_usd": "1205000.00",
-          "prev_revenue_usd": "1180000.00",
-          "revenue_growth_pct": "2.12"
-        },
-        {
-          "branch_name": "Munich West",
-          "report_month": "2025-03-01",
-          "revenue_usd": "1220000.00",
-          "prev_revenue_usd": "1205000.00",
-          "revenue_growth_pct": "1.24"
-        },
-        {
-          "branch_name": "Munich West",
-          "report_month": "2025-04-01",
-          "revenue_usd": "1248000.00",
-          "prev_revenue_usd": "1220000.00",
-          "revenue_growth_pct": "2.30"
-        }
-      ],
-      "sql": "WITH monthly AS (\n  SELECT\n    branch_name,\n    date_trunc('month', report_month)::date AS month,\n    SUM(revenue_usd) AS revenue_usd\n  FROM public.branch_finance_kpis\n  GROUP BY branch_name, date_trunc('month', report_month)\n)\nSELECT\n  branch_name,\n  month AS report_month,\n  revenue_usd,\n  LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) AS prev_revenue_usd,\n  ROUND(\n    CASE WHEN LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) IS NULL THEN NULL\n         WHEN LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) = 0 THEN NULL\n         ELSE (revenue_usd - LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month))\n              / LAG(revenue_usd) OVER (PARTITION BY branch_name ORDER BY month) * 100\n    END\n  ,2) AS revenue_growth_pct\nFROM monthly\nORDER BY branch_name, month\nLIMIT 200;",
-      "saved_at": "2026-03-19T00:07:40.492394"
-    },
-    {
-      "summary": "Top 5 branches by average transaction value over the latest 12-month window (filtered to the most recent 12 months). Frankfurt Main leads with an average transaction value of $914.50, followed by Berlin Central ($856.85), Munich West ($822.15), Hamburg Port ($805.31), and Cologne South ($764.05). Each branch in the result has 4 reporting periods.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Average Transaction Value by Branch (Last 12 Months)",
-        "data": {
-          "name": "values"
-        },
-        "mark": {
-          "type": "bar"
-        },
-        "encoding": {
-          "x": {
-            "field": "branch_name",
-            "type": "nominal",
-            "title": "Branch",
-            "sort": {
-              "field": "avg_transaction_value_usd",
-              "order": "descending"
+              "labelExpr": "datum.label"
             }
           },
           "y": {
-            "field": "avg_transaction_value_usd",
+            "field": "net_profit_margin",
             "type": "quantitative",
-            "title": "Average Transaction Value (USD)"
-          },
-          "tooltip": [
-            {
-              "field": "branch_name",
-              "type": "nominal",
-              "title": "Branch"
-            },
-            {
-              "field": "periods",
-              "type": "quantitative",
-              "title": "Periods"
-            },
-            {
-              "field": "avg_transaction_value_usd",
-              "type": "quantitative",
-              "title": "Avg Transaction Value (USD)"
+            "title": "Net Profit Margin",
+            "axis": {
+              "format": ".0%",
+              "titlePadding": 10
             }
-          ]
-        }
-      },
-      "data": [
-        {
-          "branch_name": "Frankfurt Main",
-          "periods": 4,
-          "avg_transaction_value_usd": "914.50"
-        },
-        {
-          "branch_name": "Berlin Central",
-          "periods": 4,
-          "avg_transaction_value_usd": "856.85"
-        },
-        {
-          "branch_name": "Munich West",
-          "periods": 4,
-          "avg_transaction_value_usd": "822.15"
-        },
-        {
-          "branch_name": "Hamburg Port",
-          "periods": 4,
-          "avg_transaction_value_usd": "805.31"
-        },
-        {
-          "branch_name": "Cologne South",
-          "periods": 4,
-          "avg_transaction_value_usd": "764.05"
-        }
-      ],
-      "sql": "WITH latest AS (\n  SELECT max(report_month) AS max_month FROM public.branch_finance_kpis\n),\nfiltered AS (\n  SELECT * FROM public.branch_finance_kpis, latest\n  WHERE report_month >= (latest.max_month - INTERVAL '11 months')\n    AND avg_transaction_value_usd IS NOT NULL\n)\nSELECT branch_name,\n       COUNT(*) AS periods,\n       ROUND(AVG(avg_transaction_value_usd)::numeric, 2) AS avg_transaction_value_usd\nFROM filtered\nGROUP BY branch_name\nORDER BY avg_transaction_value_usd DESC\nLIMIT 200;",
-      "saved_at": "2026-03-19T00:08:51.959175"
-    },
-    {
-      "summary": "The average loan default rate decreased steadily from 2.21% on 2025-01-01 to 2.008% on 2025-04-01, while the number of branches reporting remained constant at 5 each month.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Average Loan Default Rate (%) Over Time",
-        "data": {
-          "name": "values"
-        },
-        "mark": {
-          "type": "line",
-          "point": true
-        },
-        "encoding": {
-          "x": {
-            "field": "report_month",
-            "type": "temporal",
-            "title": "Report Month"
-          },
-          "y": {
-            "field": "avg_default_rate_pct",
-            "type": "quantitative",
-            "title": "Avg Default Rate (%)"
-          },
-          "size": {
-            "field": "branches_reporting",
-            "type": "quantitative",
-            "title": "Branches Reporting"
-          },
-          "tooltip": [
-            {
-              "field": "report_month",
-              "type": "temporal",
-              "title": "Report Month"
-            },
-            {
-              "field": "avg_default_rate_pct",
-              "type": "quantitative",
-              "title": "Avg Default Rate (%)"
-            },
-            {
-              "field": "branches_reporting",
-              "type": "quantitative",
-              "title": "Branches Reporting"
-            }
-          ]
-        }
-      },
-      "data": [
-        {
-          "report_month": "2025-01-01",
-          "avg_default_rate_pct": "2.2100000000000000",
-          "branches_reporting": 5
-        },
-        {
-          "report_month": "2025-02-01",
-          "avg_default_rate_pct": "2.1380000000000000",
-          "branches_reporting": 5
-        },
-        {
-          "report_month": "2025-03-01",
-          "avg_default_rate_pct": "2.0720000000000000",
-          "branches_reporting": 5
-        },
-        {
-          "report_month": "2025-04-01",
-          "avg_default_rate_pct": "2.0080000000000000",
-          "branches_reporting": 5
-        }
-      ],
-      "sql": "SELECT report_month::date AS report_month,\n       AVG(loan_default_rate_pct) AS avg_default_rate_pct,\n       COUNT(*) AS branches_reporting\nFROM public.branch_finance_kpis\nWHERE loan_default_rate_pct IS NOT NULL\nGROUP BY report_month\nORDER BY report_month\nLIMIT 200;",
-      "saved_at": "2026-03-19T00:45:06.523738"
-    },
-    {
-      "summary": "Dataset covers monthly customer accounts by region from 2025-01 to 2025-04. Only Germany appears: accounts increased from 57,400 (Jan) to 58,820 (Apr). Month-over-month growth values are: Jan N/A, Feb +0.94%, Mar +0.69%, Apr +0.82%. The chart below plots monthly customer accounts by region (line chart) and exposes previous month accounts and MoM growth in the tooltip.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Customer Accounts by Region (Monthly)",
-        "data": {
-          "name": "values"
-        },
-        "mark": {
-          "type": "line",
-          "point": true,
-          "interpolate": "monotone"
-        },
-        "encoding": {
-          "x": {
-            "field": "month",
-            "type": "temporal",
-            "title": "Month"
-          },
-          "y": {
-            "field": "customer_accounts",
-            "type": "quantitative",
-            "title": "Customer Accounts"
           },
           "color": {
             "field": "region",
             "type": "nominal",
             "title": "Region"
+          },
+          "size": {
+            "field": "total_net_profit_usd",
+            "type": "quantitative",
+            "title": "Total Net Profit (USD)"
           },
           "tooltip": [
             {
@@ -388,60 +48,256 @@
               "title": "Region"
             },
             {
-              "field": "month",
-              "type": "temporal",
-              "title": "Month"
+              "field": "total_net_profit_usd",
+              "type": "quantitative",
+              "title": "Total Net Profit (USD)"
             },
             {
-              "field": "customer_accounts",
+              "field": "total_revenue_usd",
               "type": "quantitative",
-              "title": "Customer Accounts"
+              "title": "Total Revenue (USD)"
             },
             {
-              "field": "prev_customer_accounts",
+              "field": "net_profit_margin",
               "type": "quantitative",
-              "title": "Prev Month Accounts"
+              "title": "Net Profit Margin"
             },
             {
-              "field": "mom_growth_pct",
+              "field": "total_operating_expense_usd",
               "type": "quantitative",
-              "title": "MoM Growth (%)"
+              "title": "Total Operating Expense (USD)"
+            },
+            {
+              "field": "avg_operating_expense_usd",
+              "type": "quantitative",
+              "title": "Avg Operating Expense (USD)"
+            },
+            {
+              "field": "branch_count",
+              "type": "quantitative",
+              "title": "Branch Count"
             }
           ]
         }
       },
       "data": [
         {
-          "month": "2025-01-01",
           "region": "Germany",
-          "customer_accounts": 57400,
-          "prev_customer_accounts": null,
-          "mom_growth_pct": null
-        },
-        {
-          "month": "2025-02-01",
-          "region": "Germany",
-          "customer_accounts": 57940,
-          "prev_customer_accounts": 57400,
-          "mom_growth_pct": "0.94"
-        },
-        {
-          "month": "2025-03-01",
-          "region": "Germany",
-          "customer_accounts": 58340,
-          "prev_customer_accounts": 57940,
-          "mom_growth_pct": "0.69"
-        },
-        {
-          "month": "2025-04-01",
-          "region": "Germany",
-          "customer_accounts": 58820,
-          "prev_customer_accounts": 58340,
-          "mom_growth_pct": "0.82"
+          "total_net_profit_usd": "8209500.00",
+          "total_revenue_usd": "24372000.00",
+          "net_profit_margin": "0.33684145741014278680",
+          "total_operating_expense_usd": "16162500.00",
+          "avg_operating_expense_usd": "808125.000000000000",
+          "branch_count": 5
         }
       ],
-      "sql": "WITH monthly AS (\n  SELECT\n    report_month::date AS month,\n    region,\n    SUM(customer_accounts) AS customer_accounts\n  FROM public.branch_finance_kpis\n  WHERE report_month >= date_trunc('month', current_date) - interval '36 months'\n  GROUP BY report_month, region\n)\nSELECT\n  month,\n  region,\n  customer_accounts,\n  LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) AS prev_customer_accounts,\n  ROUND(\n    CASE WHEN LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) IS NULL THEN NULL\n         WHEN LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) = 0 THEN NULL\n         ELSE (customer_accounts - LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month))::numeric\n              / LAG(customer_accounts) OVER (PARTITION BY region ORDER BY month) * 100\n    END\n  , 2) AS mom_growth_pct\nFROM monthly\nORDER BY region, month\nLIMIT 200;",
-      "saved_at": "2026-03-20T01:02:25.677602"
+      "sql": "SELECT\n  region,\n  SUM(net_profit_usd) AS total_net_profit_usd,\n  SUM(revenue_usd) AS total_revenue_usd,\n  CASE WHEN SUM(revenue_usd) = 0 THEN NULL ELSE SUM(net_profit_usd) / NULLIF(SUM(revenue_usd),0) END AS net_profit_margin,\n  SUM(operating_expense_usd) AS total_operating_expense_usd,\n  AVG(operating_expense_usd) AS avg_operating_expense_usd,\n  COUNT(DISTINCT branch_name) AS branch_count\nFROM public.branch_finance_kpis\nWHERE region IS NOT NULL\nGROUP BY region\nORDER BY net_profit_margin DESC NULLS LAST\nLIMIT 200;",
+      "saved_at": "2026-03-21T01:19:33.473351"
+    },
+    {
+      "summary": "From Jan to Apr 2025 the average loan default rate steadily decreased from 2.21% to 2.008% while approved loans rose from 1,431 to 1,533 and total net profit increased\u2014suggesting improving portfolio performance as volume grew. The chart shows monthly approved loans as bars (left axis) with the average default rate as a line (right axis) so you can track volume vs credit quality.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Monthly Approved Loans and Avg Loan Default Rate (%)",
+        "data": {
+          "name": "values"
+        },
+        "height": 300,
+        "layer": [
+          {
+            "mark": {
+              "type": "bar"
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal",
+                "title": "Report Month"
+              },
+              "y": {
+                "field": "total_approved_loans_count",
+                "type": "quantitative",
+                "title": "Approved Loans Count"
+              },
+              "color": {
+                "value": "#5470C6"
+              },
+              "tooltip": [
+                {
+                  "field": "report_month",
+                  "type": "temporal",
+                  "title": "Report Month"
+                },
+                {
+                  "field": "total_approved_loans_count",
+                  "type": "quantitative",
+                  "title": "Approved Loans"
+                },
+                {
+                  "field": "total_net_profit_usd",
+                  "type": "quantitative",
+                  "title": "Total Net Profit (USD)"
+                }
+              ]
+            }
+          },
+          {
+            "mark": {
+              "type": "line",
+              "point": true,
+              "strokeWidth": 2
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal"
+              },
+              "y": {
+                "field": "avg_loan_default_rate_pct",
+                "type": "quantitative",
+                "title": "Avg Loan Default Rate (%)",
+                "axis": {
+                  "orient": "right"
+                }
+              },
+              "color": {
+                "value": "#EE6666"
+              },
+              "tooltip": [
+                {
+                  "field": "report_month",
+                  "type": "temporal",
+                  "title": "Report Month"
+                },
+                {
+                  "field": "avg_loan_default_rate_pct",
+                  "type": "quantitative",
+                  "title": "Avg Loan Default Rate (%)"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
+        }
+      },
+      "data": [
+        {
+          "report_month": "2025-01-01",
+          "avg_loan_default_rate_pct": "2.2100",
+          "total_approved_loans_count": 1431,
+          "total_net_profit_usd": "1955000.00"
+        },
+        {
+          "report_month": "2025-02-01",
+          "avg_loan_default_rate_pct": "2.1380",
+          "total_approved_loans_count": 1466,
+          "total_net_profit_usd": "2021500.00"
+        },
+        {
+          "report_month": "2025-03-01",
+          "avg_loan_default_rate_pct": "2.0720",
+          "total_approved_loans_count": 1496,
+          "total_net_profit_usd": "2080500.00"
+        },
+        {
+          "report_month": "2025-04-01",
+          "avg_loan_default_rate_pct": "2.0080",
+          "total_approved_loans_count": 1533,
+          "total_net_profit_usd": "2152500.00"
+        }
+      ],
+      "sql": "SELECT\n  report_month,\n  ROUND(AVG(loan_default_rate_pct)::numeric, 4) AS avg_loan_default_rate_pct,\n  SUM(approved_loans_count) AS total_approved_loans_count,\n  SUM(net_profit_usd) AS total_net_profit_usd\nFROM public.branch_finance_kpis\nGROUP BY report_month\nORDER BY report_month\nLIMIT 200;",
+      "saved_at": "2026-03-21T01:23:20.145783"
+    },
+    {
+      "summary": "Germany (4 months) shows a strong net profit margin of 33.68% with total revenue of $24,372,000, total net profit of $8,209,500, and total operating expense of $16,162,500. Average monthly operating expense is $808,125. The chart plots net profit margin on the y-axis and encodes average operating expense as point size to compare profitability vs operating cost by region.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Net Profit Margin vs Average Operating Expense by Region",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "point",
+          "filled": true
+        },
+        "encoding": {
+          "x": {
+            "field": "region",
+            "type": "nominal",
+            "title": "Region"
+          },
+          "y": {
+            "field": "net_profit_margin_pct",
+            "type": "quantitative",
+            "title": "Net Profit Margin (%)"
+          },
+          "size": {
+            "field": "avg_operating_expense_usd",
+            "type": "quantitative",
+            "title": "Avg Operating Expense (USD)"
+          },
+          "color": {
+            "field": "region",
+            "type": "nominal",
+            "legend": null
+          },
+          "tooltip": [
+            {
+              "field": "region",
+              "type": "nominal",
+              "title": "Region"
+            },
+            {
+              "field": "months_reported",
+              "type": "quantitative",
+              "title": "Months Reported"
+            },
+            {
+              "field": "total_revenue_usd",
+              "type": "quantitative",
+              "title": "Total Revenue (USD)"
+            },
+            {
+              "field": "total_net_profit_usd",
+              "type": "quantitative",
+              "title": "Total Net Profit (USD)"
+            },
+            {
+              "field": "total_operating_expense_usd",
+              "type": "quantitative",
+              "title": "Total Operating Expense (USD)"
+            },
+            {
+              "field": "avg_operating_expense_usd",
+              "type": "quantitative",
+              "title": "Avg Operating Expense (USD)"
+            },
+            {
+              "field": "net_profit_margin_pct",
+              "type": "quantitative",
+              "title": "Net Profit Margin (%)"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "region": "Germany",
+          "months_reported": 4,
+          "total_revenue_usd": "24372000.00",
+          "total_net_profit_usd": "8209500.00",
+          "total_operating_expense_usd": "16162500.00",
+          "avg_operating_expense_usd": "808125.000000000000",
+          "net_profit_margin_pct": "33.68414574101427868000"
+        }
+      ],
+      "sql": "SELECT\n  region,\n  COUNT(DISTINCT report_month) AS months_reported,\n  SUM(revenue_usd) AS total_revenue_usd,\n  SUM(net_profit_usd) AS total_net_profit_usd,\n  SUM(operating_expense_usd) AS total_operating_expense_usd,\n  AVG(operating_expense_usd) AS avg_operating_expense_usd,\n  CASE WHEN SUM(revenue_usd)=0 THEN NULL ELSE (SUM(net_profit_usd)/NULLIF(SUM(revenue_usd),0))*100 END AS net_profit_margin_pct\nFROM public.branch_finance_kpis\nWHERE region IS NOT NULL\nGROUP BY region\nORDER BY net_profit_margin_pct DESC NULLS LAST\nLIMIT 200;",
+      "saved_at": "2026-03-21T01:27:23.861747"
     }
   ]
 }

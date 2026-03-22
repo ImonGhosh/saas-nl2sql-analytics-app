@@ -17,6 +17,7 @@ from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
 
 from chart_suggestions_agent import ChartSuggestions, run_chart_suggestions_agent
+from supabase_store import delete_metadata, fetch_metadata, upsert_metadata
 
 MCP_DB_PATH = Path(
     os.getenv("MCP_DB_PATH", str(Path(__file__).resolve().parent / "mcp.sqlite3"))
@@ -310,21 +311,8 @@ def _load_tokens(user_id: str) -> Optional[Dict[str, Any]]:
         }
 
 
-def _store_metadata(user_id: str, metadata: Dict[str, Any]) -> None:
-    payload = json.dumps(metadata)
-    now = _now_iso()
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into db_metadata (user_id, metadata_json, created_at, updated_at)
-            values (?, ?, ?, ?)
-            on conflict(user_id) do update set
-                metadata_json = excluded.metadata_json,
-                updated_at = excluded.updated_at
-            """,
-            (user_id, payload, now, now),
-        )
-        conn.commit()
+def _store_metadata(user_id: str, project_ref: str, metadata: Dict[str, Any]) -> None:
+    upsert_metadata(user_id, project_ref, metadata)
 
 
 def _suggestions_path(user_id: str) -> Path:
@@ -347,22 +335,11 @@ def _save_suggestions(user_id: str, suggestions: ChartSuggestions) -> None:
 
 
 def _has_metadata(user_id: str) -> bool:
-    with _connect_db() as conn:
-        row = conn.execute(
-            "select 1 from db_metadata where user_id = ? limit 1", (user_id,)
-        ).fetchone()
-        return row is not None
+    return fetch_metadata(user_id) is not None
 
 
 def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            "select metadata_json from db_metadata where user_id = ?",
-            (user_id,),
-        ).fetchone()
-        if not row:
-            return None
-        return json.loads(row[0])
+    return fetch_metadata(user_id)
 
 
 def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
@@ -407,13 +384,13 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
 def disconnect_user(user_id: str) -> None:
     with _connect_db() as conn:
         conn.execute("delete from mcp_tokens where user_id = ?", (user_id,))
-        conn.execute("delete from db_metadata where user_id = ?", (user_id,))
         conn.execute("delete from mcp_auth_states where user_id = ?", (user_id,))
         conn.commit()
+    delete_metadata(user_id)
 
 
 def has_active_connection(user_id: str) -> bool:
-    return _has_metadata(user_id)
+    return _load_tokens(user_id) is not None
 
 
 def build_mcp_url(project_ref: str) -> str:
@@ -518,13 +495,13 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     _delete_auth_state(state)
 
     metadata = await extract_metadata(user_id)
-    _store_metadata(user_id, metadata)
+    _store_metadata(user_id, auth_state["project_ref"], metadata)
     try:
         trace_id = uuid4().hex
         trace_metadata = {
             "user_id": user_id,
             "session_id": None,
-            "project_ref": project_ref,
+            "project_ref": auth_state["project_ref"],
             "endpoint": "MCP auth callback",
         }
         suggestions = await run_chart_suggestions_agent(

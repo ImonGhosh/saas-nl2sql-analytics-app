@@ -1,0 +1,24 @@
+[
+  {
+    "role": "user",
+    "content": "Which tables are present ? Only provide the names",
+    "timestamp": "2026-03-21T01:25:25.172867"
+  },
+  {
+    "role": "assistant",
+    "content": "branch_finance_kpis\nfinance_economics_dataset\nmarket_event_annotations",
+    "sql": null,
+    "timestamp": "2026-03-21T01:25:25.172867"
+  },
+  {
+    "role": "user",
+    "content": "Provide more details about the 2nd table",
+    "timestamp": "2026-03-21T01:25:57.344367"
+  },
+  {
+    "role": "assistant",
+    "content": "Table: public.finance_economics_dataset\n\nColumns:\n- Date \u2014 text\n- Stock Index \u2014 text\n- Open Price \u2014 double precision\n- Close Price \u2014 double precision\n- Daily High \u2014 double precision\n- Daily Low \u2014 double precision\n- Trading Volume \u2014 bigint\n- GDP Growth (%) \u2014 double precision\n- Inflation Rate (%) \u2014 double precision\n- Unemployment Rate (%) \u2014 double precision\n- Interest Rate (%) \u2014 double precision\n- Consumer Confidence Index \u2014 bigint\n- Government Debt (Billion USD) \u2014 bigint\n- Corporate Profits (Billion USD) \u2014 bigint\n- Forex USD/EUR \u2014 double precision\n- Forex USD/JPY \u2014 double precision\n- Crude Oil Price (USD per Barrel) \u2014 double precision\n- Gold Price (USD per Ounce) \u2014 double precision\n- Real Estate Index \u2014 double precision\n- Retail Sales (Billion USD) \u2014 bigint\n- Bankruptcy Rate (%) \u2014 double precision\n- Mergers & Acquisitions Deals \u2014 bigint\n- Venture Capital Funding (Billion USD) \u2014 double precision\n- Consumer Spending (Billion USD) \u2014 bigint\n\nRelationships:\n- Referenced by public.market_event_annotations via foreign key fk_market_event_parent on (Date, Stock Index).",
+    "sql": null,
+    "timestamp": "2026-03-21T01:25:57.344367"
+  }
+]

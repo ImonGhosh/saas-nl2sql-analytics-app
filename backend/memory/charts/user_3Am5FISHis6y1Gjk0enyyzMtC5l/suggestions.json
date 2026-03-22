@@ -1,9 +1,9 @@
 {
   "suggestions": [
-    "Monthly revenue growth per branch",
-    "Operating expense vs revenue trends",
-    "Loan default rate over time",
-    "Customer accounts growth by region",
-    "Average transaction value comparison across branches"
+    "Monthly revenue_usd trend by branch_name with YoY growth",
+    "Net_profit_usd margin vs operating_expense_usd by region",
+    "Customer_accounts vs deposits_usd per branch_name for growth",
+    "Loan_default_rate_pct trend vs approved_loans_count to reduce losses",
+    "Daily High-Low volatility vs Trading Volume contextualized by Date"
   ]
 }

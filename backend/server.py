@@ -36,6 +36,11 @@ from mcp_service import (  # noqa: E402
     has_active_connection,
     init_mcp_db,
 )
+from redis_cache import (  # noqa: E402
+    clear_cached_metadata,
+    get_cached_metadata,
+    set_cached_metadata,
+)
 from chart_agent import (  # noqa: E402
     ChartResponse,
     run_chart_query_agent,
@@ -356,6 +361,7 @@ async def mcp_disconnect(
 ) -> str:
     user_id = _get_user_id(creds)
     disconnect_user(user_id)
+    await clear_cached_metadata(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)
     _delete_library(user_id)
@@ -369,12 +375,19 @@ async def sql_query(
 ) -> SqlQueryResponse:
     user_id = _get_user_id(creds)
     session_id = payload.session_id or uuid4().hex
-    metadata = get_user_metadata(user_id)
+    if payload.session_id is None: # if it is new session, clear any existing cache
+        await clear_cached_metadata(user_id)
+    metadata = await get_cached_metadata(user_id, session_id)
+    print(f'Cached Metadata SQL Query: {metadata}')
     if not metadata:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No database metadata found for user. Connect Supabase first.",
-        )
+        metadata = get_user_metadata(user_id)
+        print(f'Supabase Metadata SQL Query: {metadata}')
+        if not metadata:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No database metadata found for user. Connect Supabase first.",
+            )
+        await set_cached_metadata(user_id, session_id, metadata)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
@@ -444,12 +457,18 @@ async def charts_query(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> ChartResponse:
     user_id = _get_user_id(creds)
-    metadata = get_user_metadata(user_id)
+    session_id = "charts"
+    metadata = await get_cached_metadata(user_id, session_id)
+    print(f'Cached Metadata Charts Query: {metadata}')
     if not metadata:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No database metadata found for user. Connect Supabase first.",
-        )
+        metadata = get_user_metadata(user_id)
+        print(f'Supabase Metadata Charts Query: {metadata}')
+        if not metadata:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No database metadata found for user. Connect Supabase first.",
+            )
+        await set_cached_metadata(user_id, session_id, metadata)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
