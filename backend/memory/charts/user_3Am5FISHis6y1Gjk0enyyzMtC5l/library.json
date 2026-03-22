@@ -214,90 +214,1524 @@
       "saved_at": "2026-03-21T01:23:20.145783"
     },
     {
-      "summary": "Germany (4 months) shows a strong net profit margin of 33.68% with total revenue of $24,372,000, total net profit of $8,209,500, and total operating expense of $16,162,500. Average monthly operating expense is $808,125. The chart plots net profit margin on the y-axis and encodes average operating expense as point size to compare profitability vs operating cost by region.",
+      "summary": "This chart shows daily intraday volatility (Daily High\u2013Low as a percent of Open) over time for each stock index (line, colored by index) with trading volume displayed as semi-transparent bars on a separate (independent) Y axis. Tooltips expose date, index, volatility (%), trading volume and raw high-low range so you can inspect individual days.",
       "chart_spec": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Net Profit Margin vs Average Operating Expense by Region",
+        "title": "Daily Volatility (%) vs Trading Volume by Date and Index",
         "data": {
           "name": "values"
         },
-        "mark": {
-          "type": "point",
-          "filled": true
-        },
-        "encoding": {
-          "x": {
-            "field": "region",
-            "type": "nominal",
-            "title": "Region"
-          },
-          "y": {
-            "field": "net_profit_margin_pct",
-            "type": "quantitative",
-            "title": "Net Profit Margin (%)"
-          },
-          "size": {
-            "field": "avg_operating_expense_usd",
-            "type": "quantitative",
-            "title": "Avg Operating Expense (USD)"
-          },
-          "color": {
-            "field": "region",
-            "type": "nominal",
-            "legend": null
-          },
-          "tooltip": [
-            {
-              "field": "region",
-              "type": "nominal",
-              "title": "Region"
+        "width": 800,
+        "height": 400,
+        "layer": [
+          {
+            "mark": {
+              "type": "bar",
+              "opacity": 0.35
             },
-            {
-              "field": "months_reported",
-              "type": "quantitative",
-              "title": "Months Reported"
-            },
-            {
-              "field": "total_revenue_usd",
-              "type": "quantitative",
-              "title": "Total Revenue (USD)"
-            },
-            {
-              "field": "total_net_profit_usd",
-              "type": "quantitative",
-              "title": "Total Net Profit (USD)"
-            },
-            {
-              "field": "total_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Total Operating Expense (USD)"
-            },
-            {
-              "field": "avg_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Avg Operating Expense (USD)"
-            },
-            {
-              "field": "net_profit_margin_pct",
-              "type": "quantitative",
-              "title": "Net Profit Margin (%)"
+            "encoding": {
+              "x": {
+                "field": "date",
+                "type": "temporal",
+                "title": "Date"
+              },
+              "y": {
+                "field": "trading_volume",
+                "type": "quantitative",
+                "title": "Trading Volume",
+                "axis": {
+                  "format": ","
+                }
+              },
+              "tooltip": [
+                {
+                  "field": "date",
+                  "type": "temporal",
+                  "title": "Date"
+                },
+                {
+                  "field": "stock_index",
+                  "type": "nominal",
+                  "title": "Index"
+                },
+                {
+                  "field": "trading_volume",
+                  "type": "quantitative",
+                  "title": "Trading Volume",
+                  "format": ","
+                },
+                {
+                  "field": "high_low_range",
+                  "type": "quantitative",
+                  "title": "High-Low Range"
+                }
+              ]
             }
-          ]
+          },
+          {
+            "mark": {
+              "type": "line",
+              "point": true,
+              "strokeWidth": 2
+            },
+            "encoding": {
+              "x": {
+                "field": "date",
+                "type": "temporal",
+                "title": "Date"
+              },
+              "y": {
+                "field": "volatility_pct",
+                "type": "quantitative",
+                "title": "Volatility (%)"
+              },
+              "color": {
+                "field": "stock_index",
+                "type": "nominal",
+                "title": "Index"
+              },
+              "tooltip": [
+                {
+                  "field": "date",
+                  "type": "temporal",
+                  "title": "Date"
+                },
+                {
+                  "field": "stock_index",
+                  "type": "nominal",
+                  "title": "Index"
+                },
+                {
+                  "field": "volatility_pct",
+                  "type": "quantitative",
+                  "title": "Volatility (%)",
+                  "format": ".2f"
+                },
+                {
+                  "field": "trading_volume",
+                  "type": "quantitative",
+                  "title": "Trading Volume",
+                  "format": ","
+                },
+                {
+                  "field": "high_low_range",
+                  "type": "quantitative",
+                  "title": "High-Low Range"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
         }
       },
       "data": [
         {
-          "region": "Germany",
-          "months_reported": 4,
-          "total_revenue_usd": "24372000.00",
-          "total_net_profit_usd": "8209500.00",
-          "total_operating_expense_usd": "16162500.00",
-          "avg_operating_expense_usd": "808125.000000000000",
-          "net_profit_margin_pct": "33.68414574101427868000"
+          "date": "2000-01-01",
+          "stock_index": "Dow Jones",
+          "high_low_range": 43.1499999999996,
+          "volatility_pct": 2.02701115678213,
+          "trading_volume": 2670411
+        },
+        {
+          "date": "2000-01-02",
+          "stock_index": "S&P 500",
+          "high_low_range": 73.3000000000002,
+          "volatility_pct": 3.58116492901184,
+          "trading_volume": 690220415
+        },
+        {
+          "date": "2000-01-03",
+          "stock_index": "Dow Jones",
+          "high_low_range": 43.9100000000001,
+          "volatility_pct": 2.2088414020685,
+          "trading_volume": 315284661
+        },
+        {
+          "date": "2000-01-04",
+          "stock_index": "Dow Jones",
+          "high_low_range": 69.8000000000002,
+          "volatility_pct": 1.50918266299389,
+          "trading_volume": 13098297
+        },
+        {
+          "date": "2000-01-05",
+          "stock_index": "S&P 500",
+          "high_low_range": 77.8700000000001,
+          "volatility_pct": 3.89704631214406,
+          "trading_volume": 385306746
+        },
+        {
+          "date": "2000-01-06",
+          "stock_index": "S&P 500",
+          "high_low_range": 68,
+          "volatility_pct": 3.25701695564709,
+          "trading_volume": 82664194
+        },
+        {
+          "date": "2000-01-07",
+          "stock_index": "Dow Jones",
+          "high_low_range": 106.81,
+          "volatility_pct": 2.64538994796401,
+          "trading_volume": 653722138
+        },
+        {
+          "date": "2000-01-08",
+          "stock_index": "NASDAQ",
+          "high_low_range": 97.5799999999999,
+          "volatility_pct": 3.48629490953783,
+          "trading_volume": 423890033
+        },
+        {
+          "date": "2000-01-09",
+          "stock_index": "Dow Jones",
+          "high_low_range": 91.4699999999998,
+          "volatility_pct": 2.22725988838133,
+          "trading_volume": 867172199
+        },
+        {
+          "date": "2000-01-10",
+          "stock_index": "Dow Jones",
+          "high_low_range": 100.3,
+          "volatility_pct": 7.95110427599765,
+          "trading_volume": 174582201
+        },
+        {
+          "date": "2000-01-11",
+          "stock_index": "Dow Jones",
+          "high_low_range": 26.8099999999995,
+          "volatility_pct": 0.908727307238618,
+          "trading_volume": 320527008
+        },
+        {
+          "date": "2000-01-12",
+          "stock_index": "Dow Jones",
+          "high_low_range": 101.05,
+          "volatility_pct": 8.90740006170392,
+          "trading_volume": 715127821
+        },
+        {
+          "date": "2000-01-13",
+          "stock_index": "S&P 500",
+          "high_low_range": 76.8600000000001,
+          "volatility_pct": 6.14580084918561,
+          "trading_volume": 90792126
+        },
+        {
+          "date": "2000-01-14",
+          "stock_index": "Dow Jones",
+          "high_low_range": 83.3699999999999,
+          "volatility_pct": 1.80230232935199,
+          "trading_volume": 595281205
+        },
+        {
+          "date": "2000-01-15",
+          "stock_index": "NASDAQ",
+          "high_low_range": 37.27,
+          "volatility_pct": 2.39373659263446,
+          "trading_volume": 866560662
+        },
+        {
+          "date": "2000-01-16",
+          "stock_index": "S&P 500",
+          "high_low_range": 107.95,
+          "volatility_pct": 3.44923442652283,
+          "trading_volume": 415077918
+        },
+        {
+          "date": "2000-01-17",
+          "stock_index": "NASDAQ",
+          "high_low_range": 113.64,
+          "volatility_pct": 4.29741565130578,
+          "trading_volume": 965696140
+        },
+        {
+          "date": "2000-01-18",
+          "stock_index": "NASDAQ",
+          "high_low_range": 103.03,
+          "volatility_pct": 4.31201530110446,
+          "trading_volume": 3991992
+        },
+        {
+          "date": "2000-01-19",
+          "stock_index": "NASDAQ",
+          "high_low_range": 95.2400000000007,
+          "volatility_pct": 2.0707363898655,
+          "trading_volume": 215525643
+        },
+        {
+          "date": "2000-01-20",
+          "stock_index": "NASDAQ",
+          "high_low_range": 48.6800000000001,
+          "volatility_pct": 4.47718639921273,
+          "trading_volume": 995760162
+        },
+        {
+          "date": "2000-01-21",
+          "stock_index": "S&P 500",
+          "high_low_range": 128.14,
+          "volatility_pct": 3.50572888738112,
+          "trading_volume": 992784081
+        },
+        {
+          "date": "2000-01-22",
+          "stock_index": "S&P 500",
+          "high_low_range": 76.7200000000003,
+          "volatility_pct": 1.58068889355899,
+          "trading_volume": 349254868
+        },
+        {
+          "date": "2000-01-23",
+          "stock_index": "NASDAQ",
+          "high_low_range": 50.6500000000001,
+          "volatility_pct": 1.56294840264513,
+          "trading_volume": 781089324
+        },
+        {
+          "date": "2000-01-24",
+          "stock_index": "NASDAQ",
+          "high_low_range": 130.72,
+          "volatility_pct": 2.75357098470918,
+          "trading_volume": 695658158
+        },
+        {
+          "date": "2000-01-25",
+          "stock_index": "S&P 500",
+          "high_low_range": 66.6700000000001,
+          "volatility_pct": 5.51433794033234,
+          "trading_volume": 19640512
+        },
+        {
+          "date": "2000-01-26",
+          "stock_index": "S&P 500",
+          "high_low_range": 77.54,
+          "volatility_pct": 2.89850738457743,
+          "trading_volume": 834168124
+        },
+        {
+          "date": "2000-01-27",
+          "stock_index": "S&P 500",
+          "high_low_range": 51.3799999999999,
+          "volatility_pct": 2.51784987969401,
+          "trading_volume": 97750245
+        },
+        {
+          "date": "2000-01-28",
+          "stock_index": "Dow Jones",
+          "high_low_range": 72.8899999999999,
+          "volatility_pct": 1.85788421932668,
+          "trading_volume": 374017896
+        },
+        {
+          "date": "2000-01-29",
+          "stock_index": "Dow Jones",
+          "high_low_range": 79.5600000000004,
+          "volatility_pct": 1.61536915327125,
+          "trading_volume": 67457001
+        },
+        {
+          "date": "2000-01-30",
+          "stock_index": "Dow Jones",
+          "high_low_range": 90.3899999999999,
+          "volatility_pct": 4.46123625451601,
+          "trading_volume": 447750702
+        },
+        {
+          "date": "2000-01-31",
+          "stock_index": "NASDAQ",
+          "high_low_range": 78.9400000000001,
+          "volatility_pct": 2.18265269444521,
+          "trading_volume": 897542344
+        },
+        {
+          "date": "2000-02-01",
+          "stock_index": "Dow Jones",
+          "high_low_range": 51.0400000000002,
+          "volatility_pct": 2.84759455252485,
+          "trading_volume": 317635926
+        },
+        {
+          "date": "2000-02-02",
+          "stock_index": "NASDAQ",
+          "high_low_range": 35.48,
+          "volatility_pct": 1.08790305765764,
+          "trading_volume": 835366797
+        },
+        {
+          "date": "2000-02-03",
+          "stock_index": "NASDAQ",
+          "high_low_range": 39.5100000000002,
+          "volatility_pct": 1.38353415764096,
+          "trading_volume": 328505418
+        },
+        {
+          "date": "2000-02-04",
+          "stock_index": "Dow Jones",
+          "high_low_range": 51.9400000000005,
+          "volatility_pct": 1.06259794354361,
+          "trading_volume": 83911814
+        },
+        {
+          "date": "2000-02-05",
+          "stock_index": "NASDAQ",
+          "high_low_range": 113.03,
+          "volatility_pct": 3.291391364866,
+          "trading_volume": 869602526
+        },
+        {
+          "date": "2000-02-06",
+          "stock_index": "Dow Jones",
+          "high_low_range": 64.2400000000002,
+          "volatility_pct": 2.67886556882108,
+          "trading_volume": 926087447
+        },
+        {
+          "date": "2000-02-07",
+          "stock_index": "Dow Jones",
+          "high_low_range": 55.72,
+          "volatility_pct": 3.82592455265796,
+          "trading_volume": 828085337
+        },
+        {
+          "date": "2000-02-08",
+          "stock_index": "S&P 500",
+          "high_low_range": 102.47,
+          "volatility_pct": 6.38446345460097,
+          "trading_volume": 642074973
+        },
+        {
+          "date": "2000-02-09",
+          "stock_index": "Dow Jones",
+          "high_low_range": 86.29,
+          "volatility_pct": 4.5385452881495,
+          "trading_volume": 820512481
+        },
+        {
+          "date": "2000-02-10",
+          "stock_index": "S&P 500",
+          "high_low_range": 129.68,
+          "volatility_pct": 6.47147769066855,
+          "trading_volume": 299234285
+        },
+        {
+          "date": "2000-02-11",
+          "stock_index": "Dow Jones",
+          "high_low_range": 103.93,
+          "volatility_pct": 2.36072559432681,
+          "trading_volume": 322996389
+        },
+        {
+          "date": "2000-02-12",
+          "stock_index": "Dow Jones",
+          "high_low_range": 57.3600000000001,
+          "volatility_pct": 1.76770244908148,
+          "trading_volume": 112336516
+        },
+        {
+          "date": "2000-02-13",
+          "stock_index": "S&P 500",
+          "high_low_range": 79.0700000000002,
+          "volatility_pct": 2.55595495157683,
+          "trading_volume": 760179396
+        },
+        {
+          "date": "2000-02-14",
+          "stock_index": "S&P 500",
+          "high_low_range": 87.54,
+          "volatility_pct": 5.99967102557776,
+          "trading_volume": 433513212
+        },
+        {
+          "date": "2000-02-15",
+          "stock_index": "Dow Jones",
+          "high_low_range": 53.3100000000004,
+          "volatility_pct": 1.20052425820168,
+          "trading_volume": 396413202
+        },
+        {
+          "date": "2000-02-16",
+          "stock_index": "NASDAQ",
+          "high_low_range": 50.9400000000001,
+          "volatility_pct": 1.30908754490833,
+          "trading_volume": 931967282
+        },
+        {
+          "date": "2000-02-17",
+          "stock_index": "S&P 500",
+          "high_low_range": 38.4100000000001,
+          "volatility_pct": 3.02281473553323,
+          "trading_volume": 173299941
+        },
+        {
+          "date": "2000-02-18",
+          "stock_index": "NASDAQ",
+          "high_low_range": 23.75,
+          "volatility_pct": 0.619887558921944,
+          "trading_volume": 368280027
+        },
+        {
+          "date": "2000-02-19",
+          "stock_index": "NASDAQ",
+          "high_low_range": 80.3900000000003,
+          "volatility_pct": 2.53264653529292,
+          "trading_volume": 422317180
+        },
+        {
+          "date": "2000-02-20",
+          "stock_index": "NASDAQ",
+          "high_low_range": 17.2,
+          "volatility_pct": 1.29625442761324,
+          "trading_volume": 58651049
+        },
+        {
+          "date": "2000-02-21",
+          "stock_index": "S&P 500",
+          "high_low_range": 37.7599999999998,
+          "volatility_pct": 1.33276860087533,
+          "trading_volume": 676997974
+        },
+        {
+          "date": "2000-02-22",
+          "stock_index": "NASDAQ",
+          "high_low_range": 45.9700000000003,
+          "volatility_pct": 1.56424923182671,
+          "trading_volume": 705322989
+        },
+        {
+          "date": "2000-02-23",
+          "stock_index": "S&P 500",
+          "high_low_range": 112.16,
+          "volatility_pct": 6.74403222897,
+          "trading_volume": 68204720
+        },
+        {
+          "date": "2000-02-24",
+          "stock_index": "NASDAQ",
+          "high_low_range": 116.27,
+          "volatility_pct": 2.43100784270268,
+          "trading_volume": 917879901
+        },
+        {
+          "date": "2000-02-25",
+          "stock_index": "Dow Jones",
+          "high_low_range": 95.8599999999997,
+          "volatility_pct": 2.17868587922452,
+          "trading_volume": 277488002
+        },
+        {
+          "date": "2000-02-26",
+          "stock_index": "Dow Jones",
+          "high_low_range": 53.0300000000002,
+          "volatility_pct": 1.44256533436342,
+          "trading_volume": 454777371
+        },
+        {
+          "date": "2000-02-27",
+          "stock_index": "S&P 500",
+          "high_low_range": 53.02,
+          "volatility_pct": 1.86088629009048,
+          "trading_volume": 429041376
+        },
+        {
+          "date": "2000-02-28",
+          "stock_index": "Dow Jones",
+          "high_low_range": 80.9000000000001,
+          "volatility_pct": 3.05622086390184,
+          "trading_volume": 726822338
+        },
+        {
+          "date": "2000-02-29",
+          "stock_index": "Dow Jones",
+          "high_low_range": 38.2000000000003,
+          "volatility_pct": 1.05996575922129,
+          "trading_volume": 279297464
+        },
+        {
+          "date": "2000-03-01",
+          "stock_index": "NASDAQ",
+          "high_low_range": 78.7700000000004,
+          "volatility_pct": 2.47569718360767,
+          "trading_volume": 333936018
+        },
+        {
+          "date": "2000-03-02",
+          "stock_index": "S&P 500",
+          "high_low_range": 112.63,
+          "volatility_pct": 9.01696435004683,
+          "trading_volume": 594469609
+        },
+        {
+          "date": "2000-03-03",
+          "stock_index": "NASDAQ",
+          "high_low_range": 59.5700000000002,
+          "volatility_pct": 1.95310835046443,
+          "trading_volume": 820368765
+        },
+        {
+          "date": "2000-03-04",
+          "stock_index": "NASDAQ",
+          "high_low_range": 90.7300000000005,
+          "volatility_pct": 2.14714561921239,
+          "trading_volume": 305825400
+        },
+        {
+          "date": "2000-03-05",
+          "stock_index": "NASDAQ",
+          "high_low_range": 66.3599999999997,
+          "volatility_pct": 2.33912356889063,
+          "trading_volume": 320415535
+        },
+        {
+          "date": "2000-03-06",
+          "stock_index": "NASDAQ",
+          "high_low_range": 73.6600000000001,
+          "volatility_pct": 6.09854035750065,
+          "trading_volume": 728339776
+        },
+        {
+          "date": "2000-03-07",
+          "stock_index": "NASDAQ",
+          "high_low_range": 51.6199999999999,
+          "volatility_pct": 1.24532280204868,
+          "trading_volume": 79877029
+        },
+        {
+          "date": "2000-03-08",
+          "stock_index": "NASDAQ",
+          "high_low_range": 29.04,
+          "volatility_pct": 1.60845435512279,
+          "trading_volume": 404458248
+        },
+        {
+          "date": "2000-03-09",
+          "stock_index": "NASDAQ",
+          "high_low_range": 49.78,
+          "volatility_pct": 2.44681687703983,
+          "trading_volume": 167771131
+        },
+        {
+          "date": "2000-03-10",
+          "stock_index": "S&P 500",
+          "high_low_range": 89.97,
+          "volatility_pct": 5.42370224796996,
+          "trading_volume": 487813508
+        },
+        {
+          "date": "2000-03-11",
+          "stock_index": "Dow Jones",
+          "high_low_range": 103.95,
+          "volatility_pct": 4.47894315038392,
+          "trading_volume": 683933050
+        },
+        {
+          "date": "2000-03-12",
+          "stock_index": "NASDAQ",
+          "high_low_range": 40.4400000000005,
+          "volatility_pct": 1.00421901112737,
+          "trading_volume": 684607341
+        },
+        {
+          "date": "2000-03-13",
+          "stock_index": "NASDAQ",
+          "high_low_range": 90.3899999999999,
+          "volatility_pct": 2.93708611423409,
+          "trading_volume": 103968425
+        },
+        {
+          "date": "2000-03-14",
+          "stock_index": "NASDAQ",
+          "high_low_range": 56.5500000000002,
+          "volatility_pct": 3.10794545844257,
+          "trading_volume": 65802593
+        },
+        {
+          "date": "2000-03-15",
+          "stock_index": "NASDAQ",
+          "high_low_range": 78.0299999999997,
+          "volatility_pct": 1.72964897191952,
+          "trading_volume": 580283044
+        },
+        {
+          "date": "2000-03-16",
+          "stock_index": "NASDAQ",
+          "high_low_range": 103.92,
+          "volatility_pct": 2.29996481000724,
+          "trading_volume": 856716960
+        },
+        {
+          "date": "2000-03-17",
+          "stock_index": "NASDAQ",
+          "high_low_range": 40.8600000000006,
+          "volatility_pct": 0.911583536167748,
+          "trading_volume": 112593112
+        },
+        {
+          "date": "2000-03-18",
+          "stock_index": "Dow Jones",
+          "high_low_range": 62.3100000000002,
+          "volatility_pct": 3.18691885146126,
+          "trading_volume": 783125993
+        },
+        {
+          "date": "2000-03-19",
+          "stock_index": "Dow Jones",
+          "high_low_range": 69.2900000000004,
+          "volatility_pct": 2.47026695567853,
+          "trading_volume": 657295964
+        },
+        {
+          "date": "2000-03-20",
+          "stock_index": "NASDAQ",
+          "high_low_range": 26.7099999999991,
+          "volatility_pct": 0.540692637187328,
+          "trading_volume": 223914041
+        },
+        {
+          "date": "2000-03-21",
+          "stock_index": "Dow Jones",
+          "high_low_range": 72.3500000000004,
+          "volatility_pct": 1.7697924438302,
+          "trading_volume": 545832152
+        },
+        {
+          "date": "2000-03-22",
+          "stock_index": "S&P 500",
+          "high_low_range": 108.01,
+          "volatility_pct": 9.74230384153986,
+          "trading_volume": 358434805
+        },
+        {
+          "date": "2000-03-23",
+          "stock_index": "NASDAQ",
+          "high_low_range": 62.95,
+          "volatility_pct": 4.99278247489729,
+          "trading_volume": 317188026
+        },
+        {
+          "date": "2000-03-24",
+          "stock_index": "S&P 500",
+          "high_low_range": 63.52,
+          "volatility_pct": 2.22429991630861,
+          "trading_volume": 225886856
+        },
+        {
+          "date": "2000-03-25",
+          "stock_index": "S&P 500",
+          "high_low_range": 62.1999999999998,
+          "volatility_pct": 1.34141923017201,
+          "trading_volume": 815739709
+        },
+        {
+          "date": "2000-03-26",
+          "stock_index": "NASDAQ",
+          "high_low_range": 100.57,
+          "volatility_pct": 3.18783064590261,
+          "trading_volume": 430682626
+        },
+        {
+          "date": "2000-03-27",
+          "stock_index": "Dow Jones",
+          "high_low_range": 53.1299999999997,
+          "volatility_pct": 1.77618052653572,
+          "trading_volume": 378329550
+        },
+        {
+          "date": "2000-03-28",
+          "stock_index": "S&P 500",
+          "high_low_range": 119.65,
+          "volatility_pct": 8.41485628283481,
+          "trading_volume": 791254083
+        },
+        {
+          "date": "2000-03-29",
+          "stock_index": "NASDAQ",
+          "high_low_range": 108.29,
+          "volatility_pct": 2.98556430446194,
+          "trading_volume": 335449388
+        },
+        {
+          "date": "2000-03-30",
+          "stock_index": "S&P 500",
+          "high_low_range": 32.8000000000011,
+          "volatility_pct": 0.764852241273598,
+          "trading_volume": 475226213
+        },
+        {
+          "date": "2000-03-31",
+          "stock_index": "S&P 500",
+          "high_low_range": 114.62,
+          "volatility_pct": 4.54538244345039,
+          "trading_volume": 824342099
+        },
+        {
+          "date": "2000-04-01",
+          "stock_index": "S&P 500",
+          "high_low_range": 137.12,
+          "volatility_pct": 3.34239296030421,
+          "trading_volume": 578975920
+        },
+        {
+          "date": "2000-04-02",
+          "stock_index": "S&P 500",
+          "high_low_range": 106.629999999999,
+          "volatility_pct": 2.19497685218539,
+          "trading_volume": 693648470
+        },
+        {
+          "date": "2000-04-03",
+          "stock_index": "Dow Jones",
+          "high_low_range": 64.71,
+          "volatility_pct": 3.56515175723251,
+          "trading_volume": 741479396
+        },
+        {
+          "date": "2000-04-04",
+          "stock_index": "S&P 500",
+          "high_low_range": 103.62,
+          "volatility_pct": 3.34979892154707,
+          "trading_volume": 83889149
+        },
+        {
+          "date": "2000-04-05",
+          "stock_index": "S&P 500",
+          "high_low_range": 95.6300000000001,
+          "volatility_pct": 4.45090875241442,
+          "trading_volume": 773567918
+        },
+        {
+          "date": "2000-04-06",
+          "stock_index": "S&P 500",
+          "high_low_range": 67.21,
+          "volatility_pct": 1.61120194082591,
+          "trading_volume": 659985095
+        },
+        {
+          "date": "2000-04-07",
+          "stock_index": "Dow Jones",
+          "high_low_range": 73.5600000000004,
+          "volatility_pct": 2.22210810271965,
+          "trading_volume": 66932792
+        },
+        {
+          "date": "2000-04-08",
+          "stock_index": "S&P 500",
+          "high_low_range": 74.6200000000003,
+          "volatility_pct": 2.10890448318841,
+          "trading_volume": 578281956
+        },
+        {
+          "date": "2000-04-09",
+          "stock_index": "S&P 500",
+          "high_low_range": 66.4399999999996,
+          "volatility_pct": 1.58505222274706,
+          "trading_volume": 346079543
+        },
+        {
+          "date": "2000-04-10",
+          "stock_index": "Dow Jones",
+          "high_low_range": 124.72,
+          "volatility_pct": 4.82684954409647,
+          "trading_volume": 742520684
+        },
+        {
+          "date": "2000-04-11",
+          "stock_index": "Dow Jones",
+          "high_low_range": 59.5300000000007,
+          "volatility_pct": 1.27736913028179,
+          "trading_volume": 210065568
+        },
+        {
+          "date": "2000-04-12",
+          "stock_index": "Dow Jones",
+          "high_low_range": 100.92,
+          "volatility_pct": 3.22209877016207,
+          "trading_volume": 381928032
+        },
+        {
+          "date": "2000-04-13",
+          "stock_index": "S&P 500",
+          "high_low_range": 64.8599999999999,
+          "volatility_pct": 3.97470309225282,
+          "trading_volume": 858221766
+        },
+        {
+          "date": "2000-04-14",
+          "stock_index": "Dow Jones",
+          "high_low_range": 37.2400000000002,
+          "volatility_pct": 0.984247806322028,
+          "trading_volume": 960919870
+        },
+        {
+          "date": "2000-04-15",
+          "stock_index": "Dow Jones",
+          "high_low_range": 95.2200000000003,
+          "volatility_pct": 2.28178430644254,
+          "trading_volume": 88232789
+        },
+        {
+          "date": "2000-04-16",
+          "stock_index": "S&P 500",
+          "high_low_range": 74.7599999999998,
+          "volatility_pct": 3.2976775986414,
+          "trading_volume": 418511556
+        },
+        {
+          "date": "2000-04-17",
+          "stock_index": "Dow Jones",
+          "high_low_range": 62.7200000000003,
+          "volatility_pct": 1.41621055293629,
+          "trading_volume": 267908397
+        },
+        {
+          "date": "2000-04-18",
+          "stock_index": "S&P 500",
+          "high_low_range": 91.4099999999999,
+          "volatility_pct": 1.97661620431737,
+          "trading_volume": 925614420
+        },
+        {
+          "date": "2000-04-19",
+          "stock_index": "NASDAQ",
+          "high_low_range": 78.3899999999999,
+          "volatility_pct": 3.7193611751644,
+          "trading_volume": 312539837
+        },
+        {
+          "date": "2000-04-20",
+          "stock_index": "Dow Jones",
+          "high_low_range": 117.940000000001,
+          "volatility_pct": 2.39030905394917,
+          "trading_volume": 674155416
+        },
+        {
+          "date": "2000-04-21",
+          "stock_index": "NASDAQ",
+          "high_low_range": 104.07,
+          "volatility_pct": 6.6589883866014,
+          "trading_volume": 671068752
+        },
+        {
+          "date": "2000-04-22",
+          "stock_index": "S&P 500",
+          "high_low_range": 62.24,
+          "volatility_pct": 3.44236363837483,
+          "trading_volume": 631074167
+        },
+        {
+          "date": "2000-04-23",
+          "stock_index": "Dow Jones",
+          "high_low_range": 60.29,
+          "volatility_pct": 3.47112672001842,
+          "trading_volume": 391519430
+        },
+        {
+          "date": "2000-04-24",
+          "stock_index": "S&P 500",
+          "high_low_range": 74.9400000000005,
+          "volatility_pct": 1.63768914063935,
+          "trading_volume": 89001141
+        },
+        {
+          "date": "2000-04-25",
+          "stock_index": "NASDAQ",
+          "high_low_range": 70.3699999999999,
+          "volatility_pct": 1.94544353735102,
+          "trading_volume": 629016505
+        },
+        {
+          "date": "2000-04-26",
+          "stock_index": "S&P 500",
+          "high_low_range": 70.9299999999998,
+          "volatility_pct": 4.40991780753782,
+          "trading_volume": 928499057
+        },
+        {
+          "date": "2000-04-27",
+          "stock_index": "Dow Jones",
+          "high_low_range": 87.4099999999999,
+          "volatility_pct": 3.16554943522773,
+          "trading_volume": 608066171
+        },
+        {
+          "date": "2000-04-28",
+          "stock_index": "Dow Jones",
+          "high_low_range": 40.3500000000004,
+          "volatility_pct": 1.16578402225825,
+          "trading_volume": 62531772
+        },
+        {
+          "date": "2000-04-29",
+          "stock_index": "NASDAQ",
+          "high_low_range": 72.0599999999999,
+          "volatility_pct": 5.40236606540416,
+          "trading_volume": 857936914
+        },
+        {
+          "date": "2000-04-30",
+          "stock_index": "S&P 500",
+          "high_low_range": 70.2700000000004,
+          "volatility_pct": 1.55132713862159,
+          "trading_volume": 961746099
+        },
+        {
+          "date": "2000-05-01",
+          "stock_index": "Dow Jones",
+          "high_low_range": 70,
+          "volatility_pct": 1.66096796467358,
+          "trading_volume": 214911942
+        },
+        {
+          "date": "2000-05-02",
+          "stock_index": "NASDAQ",
+          "high_low_range": 84.1499999999996,
+          "volatility_pct": 2.78565824624357,
+          "trading_volume": 24423911
+        },
+        {
+          "date": "2000-05-03",
+          "stock_index": "Dow Jones",
+          "high_low_range": 68.8299999999999,
+          "volatility_pct": 1.41377957527046,
+          "trading_volume": 630562028
+        },
+        {
+          "date": "2000-05-04",
+          "stock_index": "Dow Jones",
+          "high_low_range": 65.9000000000001,
+          "volatility_pct": 2.46720378579131,
+          "trading_volume": 560596730
+        },
+        {
+          "date": "2000-05-05",
+          "stock_index": "S&P 500",
+          "high_low_range": 56.3499999999995,
+          "volatility_pct": 1.14151088638775,
+          "trading_volume": 215374897
+        },
+        {
+          "date": "2000-05-06",
+          "stock_index": "Dow Jones",
+          "high_low_range": 47.1700000000001,
+          "volatility_pct": 1.28469801289873,
+          "trading_volume": 920749207
+        },
+        {
+          "date": "2000-05-07",
+          "stock_index": "S&P 500",
+          "high_low_range": 52.77,
+          "volatility_pct": 1.49122980537996,
+          "trading_volume": 781941002
+        },
+        {
+          "date": "2000-05-08",
+          "stock_index": "Dow Jones",
+          "high_low_range": 91.6700000000001,
+          "volatility_pct": 5.50961041458812,
+          "trading_volume": 321197992
+        },
+        {
+          "date": "2000-05-09",
+          "stock_index": "NASDAQ",
+          "high_low_range": 81.4399999999996,
+          "volatility_pct": 1.79870177197744,
+          "trading_volume": 841746806
+        },
+        {
+          "date": "2000-05-10",
+          "stock_index": "Dow Jones",
+          "high_low_range": 89.4399999999996,
+          "volatility_pct": 3.30041771834269,
+          "trading_volume": 210184575
+        },
+        {
+          "date": "2000-05-11",
+          "stock_index": "S&P 500",
+          "high_low_range": 83.6200000000001,
+          "volatility_pct": 5.07116736307788,
+          "trading_volume": 905715957
+        },
+        {
+          "date": "2000-05-12",
+          "stock_index": "S&P 500",
+          "high_low_range": 46.3100000000002,
+          "volatility_pct": 4.40867073484194,
+          "trading_volume": 120588703
+        },
+        {
+          "date": "2000-05-13",
+          "stock_index": "NASDAQ",
+          "high_low_range": 104.79,
+          "volatility_pct": 3.23523781884644,
+          "trading_volume": 196740327
+        },
+        {
+          "date": "2000-05-14",
+          "stock_index": "Dow Jones",
+          "high_low_range": 101.02,
+          "volatility_pct": 3.24864934396707,
+          "trading_volume": 109481716
+        },
+        {
+          "date": "2000-05-15",
+          "stock_index": "Dow Jones",
+          "high_low_range": 108.6,
+          "volatility_pct": 2.80083870418656,
+          "trading_volume": 773441899
+        },
+        {
+          "date": "2000-05-16",
+          "stock_index": "NASDAQ",
+          "high_low_range": 23.5900000000001,
+          "volatility_pct": 0.517207735971922,
+          "trading_volume": 492728830
+        },
+        {
+          "date": "2000-05-17",
+          "stock_index": "Dow Jones",
+          "high_low_range": 45.6299999999999,
+          "volatility_pct": 3.46303590537555,
+          "trading_volume": 419318465
+        },
+        {
+          "date": "2000-05-18",
+          "stock_index": "Dow Jones",
+          "high_low_range": 135.22,
+          "volatility_pct": 3.44422680648703,
+          "trading_volume": 461955598
+        },
+        {
+          "date": "2000-05-19",
+          "stock_index": "S&P 500",
+          "high_low_range": 79.6700000000001,
+          "volatility_pct": 4.55348212499643,
+          "trading_volume": 779928276
+        },
+        {
+          "date": "2000-05-20",
+          "stock_index": "Dow Jones",
+          "high_low_range": 106.950000000001,
+          "volatility_pct": 2.41274525064804,
+          "trading_volume": 2033687
+        },
+        {
+          "date": "2000-05-21",
+          "stock_index": "Dow Jones",
+          "high_low_range": 51.9300000000003,
+          "volatility_pct": 1.21438175971939,
+          "trading_volume": 628454769
+        },
+        {
+          "date": "2000-05-22",
+          "stock_index": "NASDAQ",
+          "high_low_range": 119.67,
+          "volatility_pct": 3.78321815388311,
+          "trading_volume": 239257872
+        },
+        {
+          "date": "2000-05-23",
+          "stock_index": "NASDAQ",
+          "high_low_range": 51.2199999999998,
+          "volatility_pct": 1.33351731463666,
+          "trading_volume": 569657518
+        },
+        {
+          "date": "2000-05-24",
+          "stock_index": "S&P 500",
+          "high_low_range": 83.9000000000001,
+          "volatility_pct": 3.71666519004164,
+          "trading_volume": 345509363
+        },
+        {
+          "date": "2000-05-25",
+          "stock_index": "Dow Jones",
+          "high_low_range": 57.9200000000005,
+          "volatility_pct": 2.00785531793933,
+          "trading_volume": 400235571
+        },
+        {
+          "date": "2000-05-26",
+          "stock_index": "Dow Jones",
+          "high_low_range": 72.6299999999992,
+          "volatility_pct": 1.69436959792839,
+          "trading_volume": 302541000
+        },
+        {
+          "date": "2000-05-27",
+          "stock_index": "Dow Jones",
+          "high_low_range": 53.52,
+          "volatility_pct": 1.88645992682566,
+          "trading_volume": 519567266
+        },
+        {
+          "date": "2000-05-28",
+          "stock_index": "S&P 500",
+          "high_low_range": 103.31,
+          "volatility_pct": 4.24935936722347,
+          "trading_volume": 572500435
+        },
+        {
+          "date": "2000-05-29",
+          "stock_index": "S&P 500",
+          "high_low_range": 71.52,
+          "volatility_pct": 2.40253959722525,
+          "trading_volume": 327327506
+        },
+        {
+          "date": "2000-05-30",
+          "stock_index": "NASDAQ",
+          "high_low_range": 92.1899999999996,
+          "volatility_pct": 2.13749130535589,
+          "trading_volume": 560473297
+        },
+        {
+          "date": "2000-05-31",
+          "stock_index": "S&P 500",
+          "high_low_range": 46.8600000000001,
+          "volatility_pct": 2.00185404322399,
+          "trading_volume": 271503507
+        },
+        {
+          "date": "2000-06-01",
+          "stock_index": "Dow Jones",
+          "high_low_range": 101.49,
+          "volatility_pct": 5.98743399899708,
+          "trading_volume": 825894493
+        },
+        {
+          "date": "2000-06-02",
+          "stock_index": "Dow Jones",
+          "high_low_range": 64.4299999999998,
+          "volatility_pct": 1.67435019204482,
+          "trading_volume": 804925991
+        },
+        {
+          "date": "2000-06-03",
+          "stock_index": "S&P 500",
+          "high_low_range": 93.9699999999993,
+          "volatility_pct": 2.18336349970142,
+          "trading_volume": 553485440
+        },
+        {
+          "date": "2000-06-04",
+          "stock_index": "Dow Jones",
+          "high_low_range": 98.99,
+          "volatility_pct": 7.05785889986097,
+          "trading_volume": 218426967
+        },
+        {
+          "date": "2000-06-05",
+          "stock_index": "Dow Jones",
+          "high_low_range": 44.45,
+          "volatility_pct": 2.26843582546568,
+          "trading_volume": 631418391
+        },
+        {
+          "date": "2000-06-06",
+          "stock_index": "S&P 500",
+          "high_low_range": 114.35,
+          "volatility_pct": 7.29324123503562,
+          "trading_volume": 955154926
+        },
+        {
+          "date": "2000-06-07",
+          "stock_index": "S&P 500",
+          "high_low_range": 53.8800000000001,
+          "volatility_pct": 2.25272496937415,
+          "trading_volume": 946599186
+        },
+        {
+          "date": "2000-06-08",
+          "stock_index": "Dow Jones",
+          "high_low_range": 55.8299999999999,
+          "volatility_pct": 1.99293210537588,
+          "trading_volume": 923384605
+        },
+        {
+          "date": "2000-06-09",
+          "stock_index": "Dow Jones",
+          "high_low_range": 100.19,
+          "volatility_pct": 2.50769026683787,
+          "trading_volume": 987151513
+        },
+        {
+          "date": "2000-06-10",
+          "stock_index": "Dow Jones",
+          "high_low_range": 72.4099999999999,
+          "volatility_pct": 2.00882763365597,
+          "trading_volume": 803780777
+        },
+        {
+          "date": "2000-06-11",
+          "stock_index": "NASDAQ",
+          "high_low_range": 68.5399999999995,
+          "volatility_pct": 1.96744275499394,
+          "trading_volume": 1889515
+        },
+        {
+          "date": "2000-06-12",
+          "stock_index": "NASDAQ",
+          "high_low_range": 80.1500000000001,
+          "volatility_pct": 3.32641626893547,
+          "trading_volume": 881189435
+        },
+        {
+          "date": "2000-06-13",
+          "stock_index": "NASDAQ",
+          "high_low_range": 65.2800000000007,
+          "volatility_pct": 1.49526202588765,
+          "trading_volume": 963802405
+        },
+        {
+          "date": "2000-06-14",
+          "stock_index": "S&P 500",
+          "high_low_range": 70.4699999999998,
+          "volatility_pct": 2.44250732197632,
+          "trading_volume": 323231884
+        },
+        {
+          "date": "2000-06-15",
+          "stock_index": "NASDAQ",
+          "high_low_range": 93.3299999999999,
+          "volatility_pct": 1.89833252651319,
+          "trading_volume": 136723587
+        },
+        {
+          "date": "2000-06-16",
+          "stock_index": "S&P 500",
+          "high_low_range": 34.7800000000002,
+          "volatility_pct": 0.983438755630461,
+          "trading_volume": 469963180
+        },
+        {
+          "date": "2000-06-17",
+          "stock_index": "S&P 500",
+          "high_low_range": 81.6800000000001,
+          "volatility_pct": 5.42702616506984,
+          "trading_volume": 86383568
+        },
+        {
+          "date": "2000-06-18",
+          "stock_index": "NASDAQ",
+          "high_low_range": 75.75,
+          "volatility_pct": 2.04469445651616,
+          "trading_volume": 766347837
+        },
+        {
+          "date": "2000-06-19",
+          "stock_index": "NASDAQ",
+          "high_low_range": 40.9499999999998,
+          "volatility_pct": 1.78010971909477,
+          "trading_volume": 178041248
+        },
+        {
+          "date": "2000-06-20",
+          "stock_index": "NASDAQ",
+          "high_low_range": 90.4200000000001,
+          "volatility_pct": 2.41421938370923,
+          "trading_volume": 178417092
+        },
+        {
+          "date": "2000-06-21",
+          "stock_index": "Dow Jones",
+          "high_low_range": 82.5700000000002,
+          "volatility_pct": 6.45804655237143,
+          "trading_volume": 888342683
+        },
+        {
+          "date": "2000-06-22",
+          "stock_index": "NASDAQ",
+          "high_low_range": 119.4,
+          "volatility_pct": 7.02547174807153,
+          "trading_volume": 255425599
+        },
+        {
+          "date": "2000-06-23",
+          "stock_index": "Dow Jones",
+          "high_low_range": 96.1500000000005,
+          "volatility_pct": 2.17388846810388,
+          "trading_volume": 607779479
+        },
+        {
+          "date": "2000-06-24",
+          "stock_index": "S&P 500",
+          "high_low_range": 84.3400000000001,
+          "volatility_pct": 4.41866800787963,
+          "trading_volume": 223070224
+        },
+        {
+          "date": "2000-06-25",
+          "stock_index": "Dow Jones",
+          "high_low_range": 73.8099999999995,
+          "volatility_pct": 1.69749963202825,
+          "trading_volume": 731722353
+        },
+        {
+          "date": "2000-06-26",
+          "stock_index": "NASDAQ",
+          "high_low_range": 80.3300000000004,
+          "volatility_pct": 3.79434131595108,
+          "trading_volume": 287683238
+        },
+        {
+          "date": "2000-06-27",
+          "stock_index": "S&P 500",
+          "high_low_range": 126.71,
+          "volatility_pct": 3.5477792430695,
+          "trading_volume": 941175727
+        },
+        {
+          "date": "2000-06-28",
+          "stock_index": "S&P 500",
+          "high_low_range": 37.9700000000003,
+          "volatility_pct": 1.00540168405445,
+          "trading_volume": 543647207
+        },
+        {
+          "date": "2000-06-29",
+          "stock_index": "S&P 500",
+          "high_low_range": 47.5999999999999,
+          "volatility_pct": 1.56033855412998,
+          "trading_volume": 836833323
+        },
+        {
+          "date": "2000-06-30",
+          "stock_index": "Dow Jones",
+          "high_low_range": 47.73,
+          "volatility_pct": 2.14879976949812,
+          "trading_volume": 942336242
+        },
+        {
+          "date": "2000-07-01",
+          "stock_index": "NASDAQ",
+          "high_low_range": 85.8800000000001,
+          "volatility_pct": 4.64070723773088,
+          "trading_volume": 109496650
+        },
+        {
+          "date": "2000-07-02",
+          "stock_index": "S&P 500",
+          "high_low_range": 79.8600000000001,
+          "volatility_pct": 7.05003707758043,
+          "trading_volume": 270303051
+        },
+        {
+          "date": "2000-07-03",
+          "stock_index": "S&P 500",
+          "high_low_range": 122.52,
+          "volatility_pct": 5.52940486237414,
+          "trading_volume": 868362188
+        },
+        {
+          "date": "2000-07-04",
+          "stock_index": "S&P 500",
+          "high_low_range": 73.1500000000001,
+          "volatility_pct": 2.02482941884766,
+          "trading_volume": 965689215
+        },
+        {
+          "date": "2000-07-05",
+          "stock_index": "Dow Jones",
+          "high_low_range": 101.1,
+          "volatility_pct": 2.12697918463695,
+          "trading_volume": 945623111
+        },
+        {
+          "date": "2000-07-06",
+          "stock_index": "Dow Jones",
+          "high_low_range": 34.2399999999998,
+          "volatility_pct": 0.763464308489522,
+          "trading_volume": 812175360
+        },
+        {
+          "date": "2000-07-07",
+          "stock_index": "NASDAQ",
+          "high_low_range": 93.8300000000004,
+          "volatility_pct": 2.30866135532669,
+          "trading_volume": 795334984
+        },
+        {
+          "date": "2000-07-08",
+          "stock_index": "Dow Jones",
+          "high_low_range": 84,
+          "volatility_pct": 2.02224956004035,
+          "trading_volume": 623910939
+        },
+        {
+          "date": "2000-07-09",
+          "stock_index": "S&P 500",
+          "high_low_range": 72.6799999999998,
+          "volatility_pct": 1.9858249042334,
+          "trading_volume": 671161793
+        },
+        {
+          "date": "2000-07-10",
+          "stock_index": "NASDAQ",
+          "high_low_range": 90.8300000000002,
+          "volatility_pct": 4.44994243441198,
+          "trading_volume": 857325709
+        },
+        {
+          "date": "2000-07-11",
+          "stock_index": "S&P 500",
+          "high_low_range": 47.5,
+          "volatility_pct": 1.0261883260816,
+          "trading_volume": 516095436
+        },
+        {
+          "date": "2000-07-12",
+          "stock_index": "S&P 500",
+          "high_low_range": 53.6200000000003,
+          "volatility_pct": 1.45590603133919,
+          "trading_volume": 331385665
+        },
+        {
+          "date": "2000-07-13",
+          "stock_index": "Dow Jones",
+          "high_low_range": 84.3800000000001,
+          "volatility_pct": 2.60290706283007,
+          "trading_volume": 174563587
+        },
+        {
+          "date": "2000-07-14",
+          "stock_index": "NASDAQ",
+          "high_low_range": 54.8200000000002,
+          "volatility_pct": 3.79650405828417,
+          "trading_volume": 672377355
+        },
+        {
+          "date": "2000-07-15",
+          "stock_index": "Dow Jones",
+          "high_low_range": 58.8900000000003,
+          "volatility_pct": 2.11210019295466,
+          "trading_volume": 230689263
+        },
+        {
+          "date": "2000-07-16",
+          "stock_index": "Dow Jones",
+          "high_low_range": 99.48,
+          "volatility_pct": 3.50105404672999,
+          "trading_volume": 403923337
+        },
+        {
+          "date": "2000-07-17",
+          "stock_index": "NASDAQ",
+          "high_low_range": 74.4499999999998,
+          "volatility_pct": 1.6699377558459,
+          "trading_volume": 142667970
+        },
+        {
+          "date": "2000-07-18",
+          "stock_index": "S&P 500",
+          "high_low_range": 64.5400000000004,
+          "volatility_pct": 2.02536253487271,
+          "trading_volume": 967242243
         }
       ],
-      "sql": "SELECT\n  region,\n  COUNT(DISTINCT report_month) AS months_reported,\n  SUM(revenue_usd) AS total_revenue_usd,\n  SUM(net_profit_usd) AS total_net_profit_usd,\n  SUM(operating_expense_usd) AS total_operating_expense_usd,\n  AVG(operating_expense_usd) AS avg_operating_expense_usd,\n  CASE WHEN SUM(revenue_usd)=0 THEN NULL ELSE (SUM(net_profit_usd)/NULLIF(SUM(revenue_usd),0))*100 END AS net_profit_margin_pct\nFROM public.branch_finance_kpis\nWHERE region IS NOT NULL\nGROUP BY region\nORDER BY net_profit_margin_pct DESC NULLS LAST\nLIMIT 200;",
-      "saved_at": "2026-03-21T01:27:23.861747"
+      "sql": "SELECT\n  NULLIF(trim(\"Date\"), '')::date AS date,\n  \"Stock Index\" AS stock_index,\n  (\"Daily High\" - \"Daily Low\") AS high_low_range,\n  CASE WHEN \"Open Price\" IS NULL OR \"Open Price\" = 0 THEN NULL ELSE ((\"Daily High\" - \"Daily Low\") / \"Open Price\") * 100 END AS volatility_pct,\n  \"Trading Volume\" AS trading_volume\nFROM public.finance_economics_dataset\nWHERE \"Daily High\" IS NOT NULL AND \"Daily Low\" IS NOT NULL AND \"Trading Volume\" IS NOT NULL\nORDER BY date ASC\nLIMIT 200;",
+      "saved_at": "2026-03-22T23:52:53.584635"
     }
   ]
 }

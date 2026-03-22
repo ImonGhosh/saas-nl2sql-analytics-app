@@ -375,9 +375,8 @@ async def sql_query(
 ) -> SqlQueryResponse:
     user_id = _get_user_id(creds)
     session_id = payload.session_id or uuid4().hex
-    if payload.session_id is None: # if it is new session, clear any existing cache
-        await clear_cached_metadata(user_id)
-    metadata = await get_cached_metadata(user_id, session_id)
+    metadata_cache_key = "metadata"
+    metadata = await get_cached_metadata(user_id, metadata_cache_key)
     print(f'Cached Metadata SQL Query: {metadata}')
     if not metadata:
         metadata = get_user_metadata(user_id)
@@ -387,7 +386,7 @@ async def sql_query(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="No database metadata found for user. Connect Supabase first.",
             )
-        await set_cached_metadata(user_id, session_id, metadata)
+        await set_cached_metadata(user_id, metadata_cache_key, metadata)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
@@ -457,8 +456,8 @@ async def charts_query(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> ChartResponse:
     user_id = _get_user_id(creds)
-    session_id = "charts"
-    metadata = await get_cached_metadata(user_id, session_id)
+    metadata_cache_key = "metadata"
+    metadata = await get_cached_metadata(user_id, metadata_cache_key)
     print(f'Cached Metadata Charts Query: {metadata}')
     if not metadata:
         metadata = get_user_metadata(user_id)
@@ -468,7 +467,7 @@ async def charts_query(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="No database metadata found for user. Connect Supabase first.",
             )
-        await set_cached_metadata(user_id, session_id, metadata)
+        await set_cached_metadata(user_id, metadata_cache_key, metadata)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
