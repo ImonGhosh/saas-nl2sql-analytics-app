@@ -215,6 +215,29 @@ def _save_conversation(user_id: str, session_id: str, messages: List[Dict[str, A
         json.dump(messages, handle, indent=2)
 
 
+def _delete_conversation(user_id: str, session_id: str) -> None:
+    key = _memory_key(user_id, session_id)
+    if USE_S3:
+        try:
+            s3_client.head_object(Bucket=S3_BUCKET, Key=key)
+        except ClientError as err:
+            if err.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Conversation not found.",
+                ) from err
+            raise
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        return
+    file_path = MEMORY_DIR / key
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found.",
+        )
+    file_path.unlink()
+
+
 def _chart_memory_path(user_id: str) -> Path:
     safe_user = Path(user_id).name
     return MEMORY_DIR / "charts" / safe_user / "latest.json"
@@ -658,6 +681,21 @@ async def sql_conversation_detail(
         len(messages),
     )
     return ConversationDetailResponse(session_id=session_id, messages=messages)
+
+
+@app.delete("/sql/conversations/{session_id}", response_class=PlainTextResponse)
+async def sql_conversation_delete(
+    session_id: str,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> str:
+    user_id = _get_user_id(creds)
+    _delete_conversation(user_id, session_id)
+    logger.info(
+        "Conversation deleted. user_id=%s session_id=%s",
+        user_id,
+        session_id,
+    )
+    return "Deleted"
 
 
 @app.post("/charts/query", response_model=ChartResponse)

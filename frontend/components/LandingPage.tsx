@@ -290,6 +290,40 @@ export default function LandingPage() {
     setSelectedChart(chart);
   };
 
+  const handleDeleteConversation = async (
+    conversation: ConversationSummary
+  ) => {
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) return;
+
+      const response = await fetch(
+        `${backendUrl}/sql/conversations/${encodeURIComponent(
+          conversation.sessionId
+        )}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status}).`);
+      }
+    } catch {
+      return;
+    } finally {
+      setConversations((prev) =>
+        prev.filter((item) => item.sessionId !== conversation.sessionId)
+      );
+      if (activeConversation?.sessionId === conversation.sessionId) {
+        setActiveConversation(null);
+      }
+    }
+  };
+
   const handleDeleteChart = async (chart: LibraryChart) => {
     try {
       const token = await getToken({ template: clerkJwtTemplate });
@@ -593,6 +627,7 @@ export default function LandingPage() {
                   <ConversationsBar
                     conversations={conversations}
                     onSelect={handleSelectConversation}
+                    onDelete={handleDeleteConversation}
                   />
                 </div>
               ) : (

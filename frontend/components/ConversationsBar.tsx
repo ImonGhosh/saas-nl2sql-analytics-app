@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "lucide-react";
+
 export type ConversationSummary = {
   sessionId: string;
   title: string;
@@ -10,6 +12,7 @@ export type ConversationSummary = {
 type ConversationsBarProps = {
   conversations: ConversationSummary[];
   onSelect?: (conversation: ConversationSummary) => void;
+  onDelete?: (conversation: ConversationSummary) => void;
 };
 
 const formatTimestamp = (value: string) => {
@@ -23,6 +26,7 @@ const formatTimestamp = (value: string) => {
 export default function ConversationsBar({
   conversations,
   onSelect,
+  onDelete,
 }: ConversationsBarProps) {
   return (
     <aside className="w-full rounded-xl border border-[#2a3b5a] bg-[#14223a]/90 p-4 shadow-sm lg:w-64">
@@ -50,9 +54,24 @@ export default function ConversationsBar({
                 }
               }}
             >
-              <p className="text-sm font-semibold text-[#E5ECF5]">
-                {conversation.title}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-[#E5ECF5]">
+                  {conversation.title}
+                </p>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete(conversation);
+                    }}
+                    className="rounded-full border border-transparent p-1 text-[#93A4BD] transition hover:border-[#2a3b5a] hover:text-[#E5ECF5]"
+                    aria-label="Delete conversation"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
               <div className="mt-2 flex items-center justify-between text-xs text-[#93A4BD]">
                 <span>{conversation.messageCount} messages</span>
                 <span>{formatTimestamp(conversation.updatedAt)}</span>
