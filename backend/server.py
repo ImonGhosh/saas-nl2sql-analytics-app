@@ -549,9 +549,11 @@ async def sql_query(
     session_id = payload.session_id or uuid4().hex
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
+    print(f'SQL Query cached metadata: {metadata}\n')
     if not metadata:
         logger.info("Metadata cache miss for SQL query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
+        print(f'SQL Query Supabase metadata: {metadata}\n')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -706,9 +708,11 @@ async def charts_query(
     user_id = _get_user_id(creds)
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
+    print(f'Charts Cached metadata: {metadata}\n')
     if not metadata:
         logger.info("Metadata cache miss for chart query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
+        print(f'Charts Supabase metadata: {metadata}\n')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

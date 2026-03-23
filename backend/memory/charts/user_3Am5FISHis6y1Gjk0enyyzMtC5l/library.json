@@ -1732,6 +1732,281 @@
       ],
       "sql": "SELECT\n  NULLIF(trim(\"Date\"), '')::date AS date,\n  \"Stock Index\" AS stock_index,\n  (\"Daily High\" - \"Daily Low\") AS high_low_range,\n  CASE WHEN \"Open Price\" IS NULL OR \"Open Price\" = 0 THEN NULL ELSE ((\"Daily High\" - \"Daily Low\") / \"Open Price\") * 100 END AS volatility_pct,\n  \"Trading Volume\" AS trading_volume\nFROM public.finance_economics_dataset\nWHERE \"Daily High\" IS NOT NULL AND \"Daily Low\" IS NOT NULL AND \"Trading Volume\" IS NOT NULL\nORDER BY date ASC\nLIMIT 200;",
       "saved_at": "2026-03-22T23:52:53.584635"
+    },
+    {
+      "summary": "Line chart showing month-over-month trends (Jan\u2013Apr 2025) of customer accounts and deposits (USD) for each branch. All branches show steady increases in both accounts and deposits; Frankfurt Main has the highest levels (\u224813,460 accounts and $22,350,000 deposits in Apr 2025). The first month for each branch has null MoM percent values because there is no prior month to compare.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Customer Accounts and Deposits (USD) Trends by Branch (Jan\u2013Apr 2025)",
+        "data": {
+          "name": "values"
+        },
+        "width": 800,
+        "height": 420,
+        "layer": [
+          {
+            "mark": {
+              "type": "line",
+              "point": true
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal",
+                "title": "Report Month"
+              },
+              "y": {
+                "field": "customer_accounts",
+                "type": "quantitative",
+                "title": "Customer Accounts"
+              },
+              "color": {
+                "field": "branch_name",
+                "type": "nominal",
+                "title": "Branch"
+              },
+              "tooltip": [
+                {
+                  "field": "branch_name",
+                  "type": "nominal"
+                },
+                {
+                  "field": "report_month",
+                  "type": "temporal"
+                },
+                {
+                  "field": "customer_accounts",
+                  "type": "quantitative",
+                  "title": "Customer Accounts"
+                },
+                {
+                  "field": "customer_accounts_mom_pct",
+                  "type": "quantitative",
+                  "title": "Accounts MoM %"
+                }
+              ]
+            }
+          },
+          {
+            "mark": {
+              "type": "line",
+              "point": true,
+              "strokeDash": [
+                5,
+                5
+              ]
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal"
+              },
+              "y": {
+                "field": "deposits_usd",
+                "type": "quantitative",
+                "title": "Deposits (USD)",
+                "axis": {
+                  "orient": "right",
+                  "format": "$,.2f"
+                }
+              },
+              "color": {
+                "field": "branch_name",
+                "type": "nominal"
+              },
+              "tooltip": [
+                {
+                  "field": "branch_name",
+                  "type": "nominal"
+                },
+                {
+                  "field": "report_month",
+                  "type": "temporal"
+                },
+                {
+                  "field": "deposits_usd",
+                  "type": "quantitative",
+                  "title": "Deposits (USD)"
+                },
+                {
+                  "field": "deposits_usd_mom_pct",
+                  "type": "quantitative",
+                  "title": "Deposits MoM %"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
+        }
+      },
+      "data": [
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-01-01",
+          "customer_accounts": 12400,
+          "deposits_usd": "18500000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-02-01",
+          "customer_accounts": 12540,
+          "deposits_usd": "18850000.00",
+          "customer_accounts_mom_pct": "1.13",
+          "deposits_usd_mom_pct": "1.89"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-03-01",
+          "customer_accounts": 12620,
+          "deposits_usd": "19100000.00",
+          "customer_accounts_mom_pct": "0.64",
+          "deposits_usd_mom_pct": "1.33"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-04-01",
+          "customer_accounts": 12740,
+          "deposits_usd": "19400000.00",
+          "customer_accounts_mom_pct": "0.95",
+          "deposits_usd_mom_pct": "1.57"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-01-01",
+          "customer_accounts": 9640,
+          "deposits_usd": "14950000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-02-01",
+          "customer_accounts": 9720,
+          "deposits_usd": "15100000.00",
+          "customer_accounts_mom_pct": "0.83",
+          "deposits_usd_mom_pct": "1.00"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-03-01",
+          "customer_accounts": 9790,
+          "deposits_usd": "15240000.00",
+          "customer_accounts_mom_pct": "0.72",
+          "deposits_usd_mom_pct": "0.93"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-04-01",
+          "customer_accounts": 9860,
+          "deposits_usd": "15410000.00",
+          "customer_accounts_mom_pct": "0.72",
+          "deposits_usd_mom_pct": "1.12"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-01-01",
+          "customer_accounts": 13150,
+          "deposits_usd": "21400000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-02-01",
+          "customer_accounts": 13280,
+          "deposits_usd": "21850000.00",
+          "customer_accounts_mom_pct": "0.99",
+          "deposits_usd_mom_pct": "2.10"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-03-01",
+          "customer_accounts": 13370,
+          "deposits_usd": "22080000.00",
+          "customer_accounts_mom_pct": "0.68",
+          "deposits_usd_mom_pct": "1.05"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-04-01",
+          "customer_accounts": 13460,
+          "deposits_usd": "22350000.00",
+          "customer_accounts_mom_pct": "0.67",
+          "deposits_usd_mom_pct": "1.22"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-01-01",
+          "customer_accounts": 10890,
+          "deposits_usd": "16820000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-02-01",
+          "customer_accounts": 10980,
+          "deposits_usd": "16970000.00",
+          "customer_accounts_mom_pct": "0.83",
+          "deposits_usd_mom_pct": "0.89"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-03-01",
+          "customer_accounts": 11050,
+          "deposits_usd": "17130000.00",
+          "customer_accounts_mom_pct": "0.64",
+          "deposits_usd_mom_pct": "0.94"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-04-01",
+          "customer_accounts": 11140,
+          "deposits_usd": "17360000.00",
+          "customer_accounts_mom_pct": "0.81",
+          "deposits_usd_mom_pct": "1.34"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-01-01",
+          "customer_accounts": 11320,
+          "deposits_usd": "17650000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-02-01",
+          "customer_accounts": 11420,
+          "deposits_usd": "17890000.00",
+          "customer_accounts_mom_pct": "0.88",
+          "deposits_usd_mom_pct": "1.36"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-03-01",
+          "customer_accounts": 11510,
+          "deposits_usd": "18020000.00",
+          "customer_accounts_mom_pct": "0.79",
+          "deposits_usd_mom_pct": "0.73"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-04-01",
+          "customer_accounts": 11620,
+          "deposits_usd": "18270000.00",
+          "customer_accounts_mom_pct": "0.96",
+          "deposits_usd_mom_pct": "1.39"
+        }
+      ],
+      "sql": "WITH t AS (\n  SELECT branch_name,\n         report_month,\n         customer_accounts,\n         deposits_usd,\n         LAG(customer_accounts) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_customer_accounts,\n         LAG(deposits_usd) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_deposits_usd\n  FROM public.branch_finance_kpis\n  WHERE report_month IS NOT NULL\n)\nSELECT branch_name,\n       report_month,\n       customer_accounts,\n       deposits_usd,\n       ROUND((customer_accounts::numeric - prev_customer_accounts::numeric) / NULLIF(prev_customer_accounts::numeric,0) * 100, 2) AS customer_accounts_mom_pct,\n       ROUND((deposits_usd - prev_deposits_usd) / NULLIF(prev_deposits_usd,0) * 100, 2) AS deposits_usd_mom_pct\nFROM t\nORDER BY branch_name, report_month\nLIMIT 200;",
+      "saved_at": "2026-03-23T17:10:51.123043"
     }
   ]
 }
