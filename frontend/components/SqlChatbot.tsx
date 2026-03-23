@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { Bot, Send, User } from "lucide-react";
+import { Bot, Plus, Send, User } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +16,17 @@ type ChatMessage = {
 
 type SqlChatbotProps = {
   onLogout: () => void;
+  activeConversation?: {
+    sessionId: string;
+    messages: Array<{
+      role: "user" | "assistant";
+      content: string;
+      timestamp?: string;
+      sql?: string;
+    }>;
+  } | null;
+  onConversationUpdated?: () => void;
+  onNewConversation?: () => void;
 };
 
 const backendUrl =
@@ -64,7 +75,12 @@ function Markdown({ children }: { children: string }) {
   );
 }
 
-export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
+export default function SqlChatbot({
+  onLogout,
+  activeConversation,
+  onConversationUpdated,
+  onNewConversation,
+}: SqlChatbotProps) {
   const { getToken } = useAuth();
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,6 +91,26 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!activeConversation) return;
+    setSessionId(activeConversation.sessionId);
+    const mapped = activeConversation.messages.map((message, index) => ({
+      id: `${activeConversation.sessionId}-${index}-${message.role}`,
+      role: message.role,
+      content: message.content,
+      timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+      sql: message.sql,
+    }));
+    setMessages(mapped);
+  }, [activeConversation]);
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setSessionId(null);
+    setChatInput("");
+    onNewConversation?.();
+  };
 
   const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,6 +185,7 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
           sql,
         },
       ]);
+      onConversationUpdated?.();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to get response.";
@@ -168,11 +205,21 @@ export default function SqlChatbot({ onLogout }: SqlChatbotProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900">SQL Chatbot</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Ask questions about your connected Supabase database.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">SQL Chatbot</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Ask questions about your connected Supabase database.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleNewConversation}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-100"
+          aria-label="New conversation"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
       <div className="flex min-h-[360px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">

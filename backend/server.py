@@ -134,6 +134,21 @@ class ChartLibraryItem(ChartLibraryRequest):
 class ChartLibraryResponse(BaseModel):
     charts: List[ChartLibraryItem]
 
+class ConversationSummary(BaseModel):
+    session_id: str
+    title: str
+    message_count: int
+    updated_at: str
+
+
+class ConversationListResponse(BaseModel):
+    conversations: List[ConversationSummary]
+
+
+class ConversationDetailResponse(BaseModel):
+    session_id: str
+    messages: List[Dict[str, Any]]
+
 
 
 def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
@@ -289,6 +304,86 @@ def _delete_library(user_id: str) -> None:
     file_path = _chart_library_path(user_id)
     if file_path.exists():
         file_path.unlink()
+
+def _conversation_title(messages: List[Dict[str, Any]]) -> str:
+    for message in messages:
+        if message.get("role") == "user":
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                words = content.strip().split()
+                return " ".join(words[:6])
+    return "Conversation"
+
+
+def _conversation_updated_at(
+    messages: List[Dict[str, Any]], fallback_iso: str
+) -> str:
+    for message in reversed(messages):
+        timestamp = message.get("timestamp")
+        if isinstance(timestamp, str) and timestamp:
+            return timestamp
+    return fallback_iso
+
+
+def _list_conversations(user_id: str) -> List[ConversationSummary]:
+    safe_user = Path(user_id).name
+    summaries: List[ConversationSummary] = []
+
+    if USE_S3:
+        prefix = f"{safe_user}/"
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
+        for obj in response.get("Contents", []):
+            key = obj.get("Key")
+            if not isinstance(key, str) or not key.endswith(".json"):
+                continue
+            session_id = Path(key).stem
+            messages: List[Dict[str, Any]] = []
+            try:
+                s3_response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
+                payload = json.loads(s3_response["Body"].read().decode("utf-8"))
+                if isinstance(payload, list):
+                    messages = payload
+            except ClientError:
+                messages = []
+            fallback_dt = obj.get("LastModified")
+            fallback_iso = (
+                fallback_dt.isoformat() if fallback_dt else datetime.utcnow().isoformat()
+            )
+            summaries.append(
+                ConversationSummary(
+                    session_id=session_id,
+                    title=_conversation_title(messages),
+                    message_count=len(messages),
+                    updated_at=_conversation_updated_at(messages, fallback_iso),
+                )
+            )
+    else:
+        user_dir = MEMORY_DIR / safe_user
+        if user_dir.exists():
+            for file_path in user_dir.glob("*.json"):
+                session_id = file_path.stem
+                messages: List[Dict[str, Any]] = []
+                try:
+                    with file_path.open("r", encoding="utf-8") as handle:
+                        payload = json.load(handle)
+                    if isinstance(payload, list):
+                        messages = payload
+                except json.JSONDecodeError:
+                    messages = []
+                fallback_iso = datetime.utcfromtimestamp(
+                    file_path.stat().st_mtime
+                ).isoformat()
+                summaries.append(
+                    ConversationSummary(
+                        session_id=session_id,
+                        title=_conversation_title(messages),
+                        message_count=len(messages),
+                        updated_at=_conversation_updated_at(messages, fallback_iso),
+                    )
+                )
+
+    summaries.sort(key=lambda item: item.updated_at, reverse=True)
+    return summaries
 
 
 init_mcp_db()
@@ -448,6 +543,44 @@ async def sql_query(
     _save_conversation(user_id, session_id, conversation)
 
     return SqlQueryResponse(answer=answer, sql=sql, session_id=session_id)
+
+
+@app.get("/sql/conversations", response_model=ConversationListResponse)
+async def sql_conversations(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ConversationListResponse:
+    user_id = _get_user_id(creds)
+    conversations = _list_conversations(user_id)
+    return ConversationListResponse(conversations=conversations)
+
+
+@app.get("/sql/conversations/{session_id}", response_model=ConversationDetailResponse)
+async def sql_conversation_detail(
+    session_id: str,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ConversationDetailResponse:
+    user_id = _get_user_id(creds)
+    messages = _load_conversation(user_id, session_id)
+    if not messages:
+        key = _memory_key(user_id, session_id)
+        if USE_S3:
+            try:
+                s3_client.head_object(Bucket=S3_BUCKET, Key=key)
+            except ClientError as err:
+                if err.response.get("Error", {}).get("Code") == "404":
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Conversation not found.",
+                    ) from err
+        else:
+            file_path = MEMORY_DIR / key
+            if not file_path.exists():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Conversation not found.",
+                )
+
+    return ConversationDetailResponse(session_id=session_id, messages=messages)
 
 
 @app.post("/charts/query", response_model=ChartResponse)

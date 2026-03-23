@@ -1,0 +1,13 @@
+[
+  {
+    "role": "user",
+    "content": "Which unique Stock indexes are present ?",
+    "timestamp": "2026-03-23T01:00:08.274962"
+  },
+  {
+    "role": "assistant",
+    "content": "Unique Stock Index values (from public.finance_economics_dataset and public.market_event_annotations):\n\n- Dow Jones\n- NASDAQ\n- S&P 500\n\nTotal distinct indexes: 3.",
+    "sql": "SELECT \"Stock Index\"\nFROM public.finance_economics_dataset\nUNION\nSELECT \"Stock Index\"\nFROM public.market_event_annotations\nORDER BY \"Stock Index\"\nLIMIT 100;",
+    "timestamp": "2026-03-23T01:00:08.274962"
+  }
+]

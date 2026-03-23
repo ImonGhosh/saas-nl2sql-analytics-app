@@ -11,6 +11,9 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { VisualizationSpec } from "vega-embed";
 import ChartLibrary, { type LibraryChart } from "./ChartLibrary";
+import ConversationsBar, {
+  type ConversationSummary,
+} from "./ConversationsBar";
 import SqlChatbot from "./SqlChatbot";
 import AnalyticsAgent from "./AnalyticsAgent";
 
@@ -32,6 +35,16 @@ export default function LandingPage() {
   const [isStatusLoading, setIsStatusLoading] = useState(true);
   const [libraryCharts, setLibraryCharts] = useState<LibraryChart[]>([]);
   const [selectedChart, setSelectedChart] = useState<LibraryChart | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [activeConversation, setActiveConversation] = useState<{
+    sessionId: string;
+    messages: Array<{
+      role: "user" | "assistant";
+      content: string;
+      timestamp?: string;
+      sql?: string;
+    }>;
+  } | null>(null);
 
   const parseLibraryItem = (item: {
     summary?: string;
@@ -187,6 +200,70 @@ export default function LandingPage() {
     };
   }, [getToken, isConnected, activeTab, isSignedIn]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadConversations = async () => {
+      if (!isConnected || activeTab !== "sql" || !isSignedIn) {
+        if (isActive) {
+          setConversations([]);
+          setActiveConversation(null);
+        }
+        return;
+      }
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) return;
+
+        const response = await fetch(`${backendUrl}/sql/conversations`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status}).`);
+        }
+
+        const payload = (await response.json()) as {
+          conversations?: Array<{
+            session_id?: string;
+            title?: string;
+            message_count?: number;
+            updated_at?: string;
+          }>;
+        };
+
+        const items = Array.isArray(payload.conversations)
+          ? payload.conversations
+          : [];
+        const parsed: ConversationSummary[] = items
+          .map((item) => {
+            if (!item.session_id || !item.title || !item.updated_at) {
+              return null;
+            }
+            return {
+              sessionId: item.session_id,
+              title: item.title,
+              messageCount: item.message_count ?? 0,
+              updatedAt: item.updated_at,
+            };
+          })
+          .filter((item): item is ConversationSummary => item !== null);
+
+        if (isActive) setConversations(parsed);
+      } catch {
+        if (isActive) setConversations([]);
+      }
+    };
+
+    void loadConversations();
+
+    return () => {
+      isActive = false;
+    };
+  }, [getToken, isConnected, activeTab, isSignedIn]);
+
   const handleDisconnect = async () => {
     try {
       const token = await getToken({ template: clerkJwtTemplate });
@@ -204,6 +281,8 @@ export default function LandingPage() {
       setIsConnected(false);
       setLibraryCharts([]);
       setSelectedChart(null);
+      setConversations([]);
+      setActiveConversation(null);
     }
   };
 
@@ -253,6 +332,116 @@ export default function LandingPage() {
       if (selectedChart?.savedAt === chart.savedAt) {
         setSelectedChart(null);
       }
+    }
+  };
+
+  const refreshConversations = async () => {
+    if (!isConnected || activeTab !== "sql" || !isSignedIn) return;
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) return;
+
+      const response = await fetch(`${backendUrl}/sql/conversations`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status}).`);
+      }
+
+      const payload = (await response.json()) as {
+        conversations?: Array<{
+          session_id?: string;
+          title?: string;
+          message_count?: number;
+          updated_at?: string;
+        }>;
+      };
+
+      const items = Array.isArray(payload.conversations)
+        ? payload.conversations
+        : [];
+      const parsed: ConversationSummary[] = items
+        .map((item) => {
+          if (!item.session_id || !item.title || !item.updated_at) {
+            return null;
+          }
+          return {
+            sessionId: item.session_id,
+            title: item.title,
+            messageCount: item.message_count ?? 0,
+            updatedAt: item.updated_at,
+          };
+        })
+        .filter((item): item is ConversationSummary => item !== null);
+
+      setConversations(parsed);
+    } catch {
+      setConversations([]);
+    }
+  };
+
+  const handleSelectConversation = async (
+    conversation: ConversationSummary
+  ) => {
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) return;
+
+      const response = await fetch(
+        `${backendUrl}/sql/conversations/${encodeURIComponent(
+          conversation.sessionId
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status}).`);
+      }
+
+      const payload = (await response.json()) as {
+        session_id?: string;
+        messages?: Array<{
+          role?: "user" | "assistant";
+          content?: string;
+          timestamp?: string;
+          sql?: string;
+        }>;
+      };
+
+      const sessionId = payload.session_id ?? conversation.sessionId;
+      const messages = Array.isArray(payload.messages)
+        ? payload.messages
+            .map((message) => {
+              if (!message.role || !message.content) return null;
+              return {
+                role: message.role,
+                content: message.content,
+                timestamp: message.timestamp,
+                sql: message.sql,
+              };
+            })
+            .filter(
+              (
+                message
+              ): message is {
+                role: "user" | "assistant";
+                content: string;
+                timestamp?: string;
+                sql?: string;
+              } => message !== null
+            )
+        : [];
+
+      setActiveConversation({ sessionId, messages });
+    } catch {
+      setActiveConversation(null);
     }
   };
 
@@ -332,7 +521,7 @@ export default function LandingPage() {
         <section className="flex min-h-[calc(100vh-73px)] w-full items-start justify-center px-6 py-12">
           <div
             className={`w-full ${
-              isConnected && activeTab === "analytics"
+              isConnected && (activeTab === "analytics" || activeTab === "sql")
                 ? "max-w-6xl"
                 : "max-w-4xl"
             }`}
@@ -374,8 +563,19 @@ export default function LandingPage() {
               </div>
             ) : isConnected ? (
               activeTab === "sql" ? (
-                <div className="mt-10 rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
-                  <SqlChatbot onLogout={handleDisconnect} />
+                <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
+                  <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
+                    <SqlChatbot
+                      onLogout={handleDisconnect}
+                      activeConversation={activeConversation}
+                      onConversationUpdated={refreshConversations}
+                      onNewConversation={() => setActiveConversation(null)}
+                    />
+                  </div>
+                  <ConversationsBar
+                    conversations={conversations}
+                    onSelect={handleSelectConversation}
+                  />
                 </div>
               ) : (
                 <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
