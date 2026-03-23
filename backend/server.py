@@ -249,12 +249,27 @@ def _delete_chart(user_id: str) -> None:
         file_path.unlink()
 
 
+def _chart_suggestions_key(user_id: str) -> str:
+    safe_user = Path(user_id).name
+    return f"charts/{safe_user}/suggestions.json"
+
+
 def _chart_suggestions_path(user_id: str) -> Path:
     safe_user = Path(user_id).name
     return MEMORY_DIR / "charts" / safe_user / "suggestions.json"
 
 
 def _load_suggestions(user_id: str) -> Optional[ChartSuggestions]:
+    if USE_S3:
+        key = _chart_suggestions_key(user_id)
+        try:
+            response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
+            payload = json.loads(response["Body"].read().decode("utf-8"))
+            return ChartSuggestions(**payload)
+        except ClientError as err:
+            if err.response.get("Error", {}).get("Code") == "NoSuchKey":
+                return None
+            raise
     file_path = _chart_suggestions_path(user_id)
     if not file_path.exists():
         return None
@@ -264,9 +279,17 @@ def _load_suggestions(user_id: str) -> Optional[ChartSuggestions]:
 
 
 def _delete_suggestions(user_id: str) -> None:
+    if USE_S3:
+        key = _chart_suggestions_key(user_id)
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        return
     file_path = _chart_suggestions_path(user_id)
     if file_path.exists():
         file_path.unlink()
+
+def _chart_library_key(user_id: str) -> str:
+    safe_user = Path(user_id).name
+    return f"charts/{safe_user}/library.json"
 
 
 def _chart_library_path(user_id: str) -> Path:
@@ -275,11 +298,21 @@ def _chart_library_path(user_id: str) -> Path:
 
 
 def _load_library(user_id: str) -> List[ChartLibraryItem]:
-    file_path = _chart_library_path(user_id)
-    if not file_path.exists():
-        return []
-    with file_path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
+    if USE_S3:
+        key = _chart_library_key(us_erid)
+        try:
+            response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
+            payload = json.loads(response["Body"].read().decode("utf-8"))
+        except ClientError as err:
+            if err.response.get("Error", {}).get("Code") == "NoSuchKey":
+                return []
+            raise
+    else:
+        file_path = _chart_library_path(user_id)
+        if not file_path.exists():
+            return []
+        with file_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
     charts = payload.get("charts", [])
     if not isinstance(charts, list):
         return []
@@ -287,8 +320,6 @@ def _load_library(user_id: str) -> List[ChartLibraryItem]:
 
 
 def _save_library(user_id: str, charts: List[ChartLibraryItem]) -> None:
-    file_path = _chart_library_path(user_id)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
     serialized = []
     for chart in charts:
         if hasattr(chart, "model_dump"):
@@ -296,11 +327,26 @@ def _save_library(user_id: str, charts: List[ChartLibraryItem]) -> None:
         else:
             serialized.append(chart.dict())
     payload = {"charts": serialized}
+    if USE_S3:
+        key = _chart_library_key(user_id)
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=json.dumps(payload, indent=2, default=str),
+            ContentType="application/json",
+        )
+        return
+    file_path = _chart_library_path(user_id)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, default=str)
 
 
 def _delete_library(user_id: str) -> None:
+    if USE_S3:
+        key = _chart_library_key(user_id)
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        return
     file_path = _chart_library_path(user_id)
     if file_path.exists():
         file_path.unlink()

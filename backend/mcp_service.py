@@ -23,6 +23,8 @@ MCP_DB_PATH = Path(
     os.getenv("MCP_DB_PATH", str(Path(__file__).resolve().parent / "mcp.sqlite3"))
 )
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(Path(__file__).resolve().parent / "memory")))
+USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
+S3_BUCKET = os.getenv("S3_BUCKET", "")
 MCP_BASE_URL = os.getenv("SUPABASE_MCP_BASE_URL", "https://mcp.supabase.com").rstrip("/")
 MCP_SERVER_URL_TEMPLATE = os.getenv(
     "SUPABASE_MCP_SERVER_URL_TEMPLATE",
@@ -47,6 +49,14 @@ OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
 MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
 
 logger = logging.getLogger("mcp")
+
+if USE_S3:
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+    except Exception as exc:
+        raise RuntimeError("USE_S3=true requires boto3 to be installed.") from exc
+    s3_client = boto3.client("s3")
 
 
 def _now_iso() -> str:
@@ -320,6 +330,10 @@ def _suggestions_path(user_id: str) -> Path:
     safe_user = Path(user_id).name
     return MEMORY_DIR / "charts" / safe_user / "suggestions.json"
 
+def _suggestions_key(user_id: str) -> str:
+    safe_user = Path(user_id).name
+    return f"charts/{safe_user}/suggestions.json"
+
 
 def _serialize_suggestions(suggestions: ChartSuggestions) -> Dict[str, Any]:
     if hasattr(suggestions, "model_dump"):
@@ -328,9 +342,18 @@ def _serialize_suggestions(suggestions: ChartSuggestions) -> Dict[str, Any]:
 
 
 def _save_suggestions(user_id: str, suggestions: ChartSuggestions) -> None:
+    payload = _serialize_suggestions(suggestions)
+    if USE_S3:
+        key = _suggestions_key(user_id)
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=json.dumps(payload, indent=2, default=str),
+            ContentType="application/json",
+        )
+        return
     file_path = _suggestions_path(user_id)
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = _serialize_suggestions(suggestions)
     with file_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, default=str)
 
