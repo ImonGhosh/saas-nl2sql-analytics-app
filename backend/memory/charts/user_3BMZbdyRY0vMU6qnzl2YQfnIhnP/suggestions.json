@@ -1,0 +1,9 @@
+{
+  "suggestions": [
+    "Daily net revenue trend (net_order_amount by order_date)",
+    "Gross margin by product category (line_profit / line_revenue)",
+    "Discount impact: gross vs net revenue by sales_channel",
+    "Return rate and lost revenue by region using is_returned",
+    "Top-selling products by quantity and revenue (product_name)"
+  ]
+}

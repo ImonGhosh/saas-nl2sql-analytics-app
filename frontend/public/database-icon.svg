@@ -1,0 +1,15 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dbgrad" x1="16" y1="16" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7AA2F7" />
+      <stop offset="1" stop-color="#3B82F6" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="48" cy="22" rx="26" ry="10" fill="#1a2a44" stroke="url(#dbgrad)" stroke-width="2.5" />
+  <path d="M22 22V62C22 67.523 33.641 72 48 72C62.359 72 74 67.523 74 62V22" fill="#132137" stroke="url(#dbgrad)" stroke-width="2.5" />
+  <ellipse cx="48" cy="42" rx="26" ry="10" fill="#15233b" stroke="#7AA2F7" stroke-width="2" />
+  <ellipse cx="48" cy="62" rx="26" ry="10" fill="#111b2e" stroke="#5B8DF6" stroke-width="2" />
+  <circle cx="60" cy="48" r="3" fill="#C7D2E6" />
+  <circle cx="36" cy="56" r="3" fill="#C7D2E6" />
+  <circle cx="54" cy="66" r="3" fill="#C7D2E6" />
+</svg>

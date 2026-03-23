@@ -1,100 +1,6 @@
 {
   "charts": [
     {
-      "summary": "Query result contains a single region (Germany) with a net profit margin of ~33.68% (0.3368414574). Germany\u2019s total net profit is $8,209,500, total revenue $24,372,000, total operating expense $16,162,500, average operating expense per branch $808,125, and 5 branches. The chart is a scatter plot of Net Profit Margin (y) vs Avg Operating Expense (x) with point size representing total net profit and color by region; tooltips show the numeric details.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Net Profit Margin vs Avg Operating Expense by Region",
-        "data": {
-          "name": "values"
-        },
-        "mark": {
-          "type": "point",
-          "filled": true,
-          "opacity": 0.85
-        },
-        "encoding": {
-          "x": {
-            "field": "avg_operating_expense_usd",
-            "type": "quantitative",
-            "title": "Avg Operating Expense (USD)",
-            "axis": {
-              "labelExpr": "datum.label"
-            }
-          },
-          "y": {
-            "field": "net_profit_margin",
-            "type": "quantitative",
-            "title": "Net Profit Margin",
-            "axis": {
-              "format": ".0%",
-              "titlePadding": 10
-            }
-          },
-          "color": {
-            "field": "region",
-            "type": "nominal",
-            "title": "Region"
-          },
-          "size": {
-            "field": "total_net_profit_usd",
-            "type": "quantitative",
-            "title": "Total Net Profit (USD)"
-          },
-          "tooltip": [
-            {
-              "field": "region",
-              "type": "nominal",
-              "title": "Region"
-            },
-            {
-              "field": "total_net_profit_usd",
-              "type": "quantitative",
-              "title": "Total Net Profit (USD)"
-            },
-            {
-              "field": "total_revenue_usd",
-              "type": "quantitative",
-              "title": "Total Revenue (USD)"
-            },
-            {
-              "field": "net_profit_margin",
-              "type": "quantitative",
-              "title": "Net Profit Margin"
-            },
-            {
-              "field": "total_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Total Operating Expense (USD)"
-            },
-            {
-              "field": "avg_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Avg Operating Expense (USD)"
-            },
-            {
-              "field": "branch_count",
-              "type": "quantitative",
-              "title": "Branch Count"
-            }
-          ]
-        }
-      },
-      "data": [
-        {
-          "region": "Germany",
-          "total_net_profit_usd": "8209500.00",
-          "total_revenue_usd": "24372000.00",
-          "net_profit_margin": "0.33684145741014278680",
-          "total_operating_expense_usd": "16162500.00",
-          "avg_operating_expense_usd": "808125.000000000000",
-          "branch_count": 5
-        }
-      ],
-      "sql": "SELECT\n  region,\n  SUM(net_profit_usd) AS total_net_profit_usd,\n  SUM(revenue_usd) AS total_revenue_usd,\n  CASE WHEN SUM(revenue_usd) = 0 THEN NULL ELSE SUM(net_profit_usd) / NULLIF(SUM(revenue_usd),0) END AS net_profit_margin,\n  SUM(operating_expense_usd) AS total_operating_expense_usd,\n  AVG(operating_expense_usd) AS avg_operating_expense_usd,\n  COUNT(DISTINCT branch_name) AS branch_count\nFROM public.branch_finance_kpis\nWHERE region IS NOT NULL\nGROUP BY region\nORDER BY net_profit_margin DESC NULLS LAST\nLIMIT 200;",
-      "saved_at": "2026-03-21T01:19:33.473351"
-    },
-    {
       "summary": "From Jan to Apr 2025 the average loan default rate steadily decreased from 2.21% to 2.008% while approved loans rose from 1,431 to 1,533 and total net profit increased\u2014suggesting improving portfolio performance as volume grew. The chart shows monthly approved loans as bars (left axis) with the average default rate as a line (right axis) so you can track volume vs credit quality.",
       "chart_spec": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
@@ -2007,6 +1913,171 @@
       ],
       "sql": "WITH t AS (\n  SELECT branch_name,\n         report_month,\n         customer_accounts,\n         deposits_usd,\n         LAG(customer_accounts) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_customer_accounts,\n         LAG(deposits_usd) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_deposits_usd\n  FROM public.branch_finance_kpis\n  WHERE report_month IS NOT NULL\n)\nSELECT branch_name,\n       report_month,\n       customer_accounts,\n       deposits_usd,\n       ROUND((customer_accounts::numeric - prev_customer_accounts::numeric) / NULLIF(prev_customer_accounts::numeric,0) * 100, 2) AS customer_accounts_mom_pct,\n       ROUND((deposits_usd - prev_deposits_usd) / NULLIF(prev_deposits_usd,0) * 100, 2) AS deposits_usd_mom_pct\nFROM t\nORDER BY branch_name, report_month\nLIMIT 200;",
       "saved_at": "2026-03-23T17:10:51.123043"
+    },
+    {
+      "summary": "Line chart comparing average Close and Open prices by year (2000\u20132008) with a secondary bar chart showing average trading volume (right axis). Close and Open track almost identically; highest avg close price is 3183.66 in 2008 and lowest is 2918.70 in 2006. Trading volume peaks around 517.64M in 2005 and is lowest around 485.38M in 2003.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Average Open / Close Price and Trading Volume by Year (2000\u20132008)",
+        "data": {
+          "name": "values"
+        },
+        "layer": [
+          {
+            "transform": [
+              {
+                "fold": [
+                  "avg_close_price",
+                  "avg_open_price"
+                ],
+                "as": [
+                  "Price Type",
+                  "Price"
+                ]
+              }
+            ],
+            "mark": {
+              "type": "line",
+              "point": true
+            },
+            "encoding": {
+              "x": {
+                "field": "year",
+                "type": "temporal",
+                "timeUnit": "year",
+                "title": "Year"
+              },
+              "y": {
+                "field": "Price",
+                "type": "quantitative",
+                "title": "Average Price"
+              },
+              "color": {
+                "field": "Price Type",
+                "type": "nominal",
+                "title": "Price Type"
+              },
+              "tooltip": [
+                {
+                  "field": "year",
+                  "type": "temporal",
+                  "timeUnit": "year",
+                  "title": "Year"
+                },
+                {
+                  "field": "Price Type",
+                  "type": "nominal",
+                  "title": "Price Type"
+                },
+                {
+                  "field": "Price",
+                  "type": "quantitative",
+                  "title": "Average Price"
+                }
+              ]
+            }
+          },
+          {
+            "mark": {
+              "type": "bar",
+              "opacity": 0.35
+            },
+            "encoding": {
+              "x": {
+                "field": "year",
+                "type": "temporal",
+                "timeUnit": "year",
+                "title": "Year"
+              },
+              "y": {
+                "field": "avg_trading_volume",
+                "type": "quantitative",
+                "title": "Average Trading Volume",
+                "axis": {
+                  "orient": "right",
+                  "title": "Avg Trading Volume"
+                }
+              },
+              "tooltip": [
+                {
+                  "field": "year",
+                  "type": "temporal",
+                  "timeUnit": "year",
+                  "title": "Year"
+                },
+                {
+                  "field": "avg_trading_volume",
+                  "type": "quantitative",
+                  "title": "Average Trading Volume"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
+        }
+      },
+      "data": [
+        {
+          "year": "2008",
+          "avg_close_price": "3183.66487179487",
+          "avg_open_price": "3183.69525641026",
+          "avg_trading_volume": 512161268
+        },
+        {
+          "year": "2007",
+          "avg_close_price": "2984.43567123287",
+          "avg_open_price": "2987.02515068493",
+          "avg_trading_volume": 509405325
+        },
+        {
+          "year": "2006",
+          "avg_close_price": "2918.70021917808",
+          "avg_open_price": "2920.94364383562",
+          "avg_trading_volume": 500659169
+        },
+        {
+          "year": "2005",
+          "avg_close_price": "2960.95326027397",
+          "avg_open_price": "2961.43528767123",
+          "avg_trading_volume": 517642443
+        },
+        {
+          "year": "2004",
+          "avg_close_price": "2940.43054644809",
+          "avg_open_price": "2940.83330601093",
+          "avg_trading_volume": 504812157
+        },
+        {
+          "year": "2003",
+          "avg_close_price": "2996.80646575343",
+          "avg_open_price": "2997.40079452055",
+          "avg_trading_volume": 485379264
+        },
+        {
+          "year": "2002",
+          "avg_close_price": "3046.60312328767",
+          "avg_open_price": "3045.68583561644",
+          "avg_trading_volume": 502075788
+        },
+        {
+          "year": "2001",
+          "avg_close_price": "2970.59558904109",
+          "avg_open_price": "2971.72791780822",
+          "avg_trading_volume": 505097099
+        },
+        {
+          "year": "2000",
+          "avg_close_price": "2988.30505464481",
+          "avg_open_price": "2988.71803278689",
+          "avg_trading_volume": 500149619
+        }
+      ],
+      "sql": "SELECT left(\"Date\",4) AS year,\n       AVG(\"Close Price\")::numeric AS avg_close_price,\n       AVG(\"Open Price\")::numeric AS avg_open_price,\n       AVG(\"Trading Volume\")::bigint AS avg_trading_volume\nFROM public.finance_economics_dataset\nWHERE \"Close Price\" IS NOT NULL\nGROUP BY year\nORDER BY year DESC\nLIMIT 200;",
+      "saved_at": "2026-03-23T20:51:57.265384"
     }
   ]
 }

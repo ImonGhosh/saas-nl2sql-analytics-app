@@ -1,0 +1,120 @@
+{
+  "charts": [
+    {
+      "summary": "Gross vs net revenue by sales channel: Partner leads with gross $6110 and net $5700 (discount $410, 6.71%). Online follows with gross $4345 and net $4110 (discount $235, 5.41%). Retail has gross $2750 and net $2600 (discount $150, 5.45%). The chart shows gross and net revenue side-by-side per channel to highlight the discount impact; tooltips include orders, discount amount and discount percent.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Gross vs Net Revenue by Sales Channel (Discount Impact)",
+        "data": {
+          "name": "values"
+        },
+        "transform": [
+          {
+            "fold": [
+              "gross_revenue",
+              "net_revenue"
+            ],
+            "as": [
+              "revenue_type",
+              "revenue"
+            ]
+          }
+        ],
+        "mark": {
+          "type": "bar"
+        },
+        "encoding": {
+          "x": {
+            "field": "sales_channel",
+            "type": "nominal",
+            "title": "Sales Channel"
+          },
+          "xOffset": {
+            "field": "revenue_type",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "revenue",
+            "type": "quantitative",
+            "title": "Revenue"
+          },
+          "color": {
+            "field": "revenue_type",
+            "type": "nominal",
+            "title": "Revenue Type",
+            "scale": {
+              "domain": [
+                "gross_revenue",
+                "net_revenue"
+              ],
+              "range": [
+                "#1f77b4",
+                "#ff7f0e"
+              ]
+            }
+          },
+          "tooltip": [
+            {
+              "field": "sales_channel",
+              "type": "nominal",
+              "title": "Sales Channel"
+            },
+            {
+              "field": "orders_count",
+              "type": "quantitative",
+              "title": "Orders"
+            },
+            {
+              "field": "revenue_type",
+              "type": "nominal",
+              "title": "Revenue Type"
+            },
+            {
+              "field": "revenue",
+              "type": "quantitative",
+              "title": "Revenue"
+            },
+            {
+              "field": "discount_amount",
+              "type": "quantitative",
+              "title": "Discount Amount"
+            },
+            {
+              "field": "discount_pct",
+              "type": "quantitative",
+              "title": "Discount %"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "sales_channel": "Partner",
+          "orders_count": 5,
+          "gross_revenue": "6110.00",
+          "net_revenue": "5700.00",
+          "discount_amount": "410.00",
+          "discount_pct": "6.71"
+        },
+        {
+          "sales_channel": "Online",
+          "orders_count": 10,
+          "gross_revenue": "4345.00",
+          "net_revenue": "4110.00",
+          "discount_amount": "235.00",
+          "discount_pct": "5.41"
+        },
+        {
+          "sales_channel": "Retail",
+          "orders_count": 5,
+          "gross_revenue": "2750.00",
+          "net_revenue": "2600.00",
+          "discount_amount": "150.00",
+          "discount_pct": "5.45"
+        }
+      ],
+      "sql": "SELECT COALESCE(sales_channel,'Unknown') AS sales_channel,\n       COUNT(*) AS orders_count,\n       SUM(gross_order_amount) AS gross_revenue,\n       SUM(net_order_amount) AS net_revenue,\n       SUM(gross_order_amount - net_order_amount) AS discount_amount,\n       CASE WHEN SUM(gross_order_amount) = 0 THEN 0\n            ELSE ROUND(100.0 * SUM(gross_order_amount - net_order_amount) / SUM(gross_order_amount), 2)\n       END AS discount_pct\nFROM public.sales_orders\nGROUP BY COALESCE(sales_channel,'Unknown')\nORDER BY gross_revenue DESC\nLIMIT 200;",
+      "saved_at": "2026-03-23T21:36:52.048325"
+    }
+  ]
+}

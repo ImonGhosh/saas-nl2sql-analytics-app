@@ -568,6 +568,44 @@ export default function LandingPage() {
           </p>
         </section>
       </SignedOut>
+      <SignedOut>
+        <div className="fixed bottom-2 right-4 z-20 sm:bottom-6 sm:right-8">
+          <a
+            href="https://www.flaticon.com/free-icons/analysis"
+            title="analysis icons"
+            target="_blank"
+            rel="noreferrer"
+            className="block"
+            aria-label="Analysis icons created by Freepik - Flaticon"
+          >
+            <img
+              src="/analysis-icon.svg"
+              alt="Analysis icon"
+              className="h-32 w-32 opacity-90 transition hover:opacity-100 sm:h-40 sm:w-40"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </SignedOut>
+      <SignedOut>
+        <div className="fixed bottom-2 left-4 z-20 sm:bottom-6 sm:left-8">
+          <a
+            href="https://www.flaticon.com/free-icons/database"
+            title="database icons"
+            target="_blank"
+            rel="noreferrer"
+            className="block"
+            aria-label="Database icons created by Freepik - Flaticon"
+          >
+            <img
+              src="/database-icon.svg"
+              alt="Database icon"
+              className="h-32 w-32 opacity-90 transition hover:opacity-100 sm:h-40 sm:w-40"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </SignedOut>
 
       <SignedIn>
         <section className="flex min-h-[calc(100vh-73px)] w-full items-start justify-center px-6 py-12">
