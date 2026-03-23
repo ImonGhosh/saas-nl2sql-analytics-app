@@ -183,7 +183,7 @@ def _get_agent() -> Agent:
             "Use ONLY the provided database metadata to infer tables, columns, and relationships. "
             "Follow below steps while responding :"
             "If the user question can be answered by only looking at the metadata, do not create any SQL query or use any tools. Simply answer based on the metadata"
-            "Else, query the database to answer the user question, generate a single, read-only SQL query (no INSERT/UPDATE/DELETE/DDL)."
+            "Else, query the database to answer the user question, generate a single, read-only SQL query (strictly no INSERT/UPDATE/DELETE/DDL)."
             "Always prefer fully qualified table names when the schema is known. "
             "If the request is ambiguous, make a reasonable assumption and proceed. "
             "Use LIMIT when returning example rows (default to LIMIT 20 if not specified). "

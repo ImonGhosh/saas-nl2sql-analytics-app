@@ -9,7 +9,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "AI SQL & Analytics Agent",
+  title: "Supa-Connect",
   description: "AI SQL and analytics landing page with Clerk authentication.",
 };
 

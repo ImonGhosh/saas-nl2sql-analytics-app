@@ -130,7 +130,6 @@ export default function AnalyticsAgent({
     setIsSuggestionOpen(false);
     setLastRequest(trimmed);
     setChartPayload(null);
-    setChartInput("");
 
     try {
       const token = await getToken({ template: clerkJwtTemplate });
@@ -168,6 +167,7 @@ export default function AnalyticsAgent({
       }
 
       setChartPayload(parsed);
+      setChartInput("");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create chart.";
@@ -240,14 +240,14 @@ export default function AnalyticsAgent({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Analytics Agent</h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <h2 className="text-xl font-semibold text-[#E5ECF5]">Analytics Agent</h2>
+        <p className="mt-1 text-sm text-[#A7B6CC]">
           Describe the KPI or chart you want to generate.
         </p>
       </div>
       <form
         onSubmit={handleCreate}
-        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+        className="rounded-xl border border-[#2a3b5a] bg-[#111c2e] p-4"
       >
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -262,11 +262,11 @@ export default function AnalyticsAgent({
               }}
               placeholder="Example: Monthly revenue by plan tier for the last 12 months"
               rows={2}
-              className="min-h-[44px] w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+              className="min-h-[44px] w-full resize-none rounded-lg border border-[#2a3b5a] bg-[#14223a] px-4 py-2 text-sm text-[#E5ECF5] focus:border-[#3B82F6] focus:outline-none"
             />
             {isSuggestionOpen && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-10 mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="absolute left-0 right-0 top-full z-10 mt-2 max-h-56 overflow-auto rounded-lg border border-[#2a3b5a] bg-[#111c2e] shadow-lg">
+                <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-[#93A4BD]">
                   Suggestions
                 </div>
                 {suggestions.map((item) => (
@@ -278,7 +278,7 @@ export default function AnalyticsAgent({
                       setChartInput(item);
                       setIsSuggestionOpen(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    className="w-full px-3 py-2 text-left text-sm text-[#C7D2E6] hover:bg-[#1b2f4b]"
                   >
                     {item}
                   </button>
@@ -289,7 +289,7 @@ export default function AnalyticsAgent({
           <button
             type="submit"
             disabled={!chartInput.trim() || isCreating}
-            className="h-[44px] rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="h-[44px] rounded-lg bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-6 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#384b77]"
           >
             {isCreating ? (
               <span className="inline-flex items-center gap-2">
@@ -303,11 +303,11 @@ export default function AnalyticsAgent({
         </div>
       </form>
 
-      <div className="min-h-[360px] rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="min-h-[360px] rounded-xl border border-[#2a3b5a] bg-[#14223a] shadow-sm">
         {chartPayload ? (
           <div className="flex h-full flex-col gap-4 p-6">
             {chartPayload.summary && (
-              <p className="text-sm text-slate-700">{chartPayload.summary}</p>
+              <p className="text-sm text-[#C7D2E6]">{chartPayload.summary}</p>
             )}
             <div className="min-h-[320px] flex-1 w-full">
               <VegaLite
@@ -323,11 +323,11 @@ export default function AnalyticsAgent({
               />
             </div>
             {chartPayload.sql && (
-              <details className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                <summary className="cursor-pointer font-semibold text-slate-700">
+              <details className="rounded-md border border-[#2a3b5a] bg-[#111c2e] px-3 py-2 text-xs text-[#A7B6CC]">
+                <summary className="cursor-pointer font-semibold text-[#A7B6CC]">
                   View SQL
                 </summary>
-                <pre className="mt-2 whitespace-pre-wrap text-[11px] text-slate-600">
+                <pre className="mt-2 whitespace-pre-wrap text-[11px] text-[#A7B6CC]">
                   {chartPayload.sql}
                 </pre>
               </details>
@@ -337,17 +337,17 @@ export default function AnalyticsAgent({
                 type="button"
                 onClick={handleSaveToLibrary}
                 disabled={isSaving || libraryCharts.length >= 4}
-                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_18px_-10px_rgba(59,130,246,0.9)] transition hover:from-[#2563EB] hover:to-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#435884] disabled:shadow-none"
               >
-                {isSaving ? "Saving..." : "Save to Library"}
+                {isSaving ? "Saving..." : "Add to Library"}
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
-            <BarChart3 className="h-10 w-10 text-slate-400" />
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-[#93A4BD]">
+            <BarChart3 className="h-10 w-10 text-[#A7B6CC]" />
             <p className="text-sm font-semibold">No chart yet</p>
-            <p className="max-w-sm text-sm text-slate-500">
+            <p className="max-w-sm text-sm text-[#93A4BD]">
               Add a chart request above and click Create to render the analytics chart
               here.
             </p>
@@ -357,7 +357,7 @@ export default function AnalyticsAgent({
               </p>
             )}
             {lastRequest && (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#93A4BD]">
                 Latest request: <span className="font-medium">{lastRequest}</span>
               </p>
             )}
@@ -368,7 +368,7 @@ export default function AnalyticsAgent({
       <button
         type="button"
         onClick={onLogout}
-        className="w-fit rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        className="w-fit rounded-md border border-[#2a3b5a] bg-[#14223a] px-6 py-3 text-sm font-semibold text-[#C7D2E6] transition hover:bg-[#1b2f4b]"
       >
         Logout
       </button>

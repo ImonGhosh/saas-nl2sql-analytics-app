@@ -79,15 +79,15 @@ export default function ChartLibrary({
   onDelete,
 }: ChartLibraryProps) {
   return (
-    <aside className="w-full rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm lg:w-64">
+    <aside className="w-full rounded-xl border border-[#2a3b5a] bg-[#14223a]/90 p-4 shadow-sm lg:w-64">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">Library</h3>
-        <span className="text-xs text-slate-400">
+        <h3 className="text-sm font-semibold text-[#C7D2E6]">Library</h3>
+        <span className="text-xs text-[#93A4BD]">
           {charts.length}/{maxCharts}
         </span>
       </div>
       {charts.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
+        <div className="mt-4 rounded-lg border border-dashed border-[#2a3b5a] p-4 text-center text-xs text-[#93A4BD]">
           No saved charts yet.
         </div>
         ) : (
@@ -95,7 +95,7 @@ export default function ChartLibrary({
           {charts.map((chart, index) => (
             <div
               key={`${chart.savedAt}-${index}`}
-              className="group relative rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition hover:border-slate-300"
+              className="group relative rounded-lg border border-[#2a3b5a] bg-[#111c2e] p-2 shadow-sm transition hover:border-[#3a5177]"
               role="button"
               tabIndex={0}
               onClick={() => onSelect?.(chart)}
@@ -112,7 +112,7 @@ export default function ChartLibrary({
                     event.stopPropagation();
                     onDelete(chart);
                   }}
-                  className="absolute right-2 top-2 z-10 rounded-full border border-slate-200 bg-white/90 p-1 text-slate-500 opacity-0 shadow-sm transition hover:text-slate-700 group-hover:opacity-100"
+                  className="absolute right-2 top-2 z-10 rounded-full border border-[#2a3b5a] bg-[#14223a]/90 p-1 text-[#93A4BD] opacity-0 shadow-sm transition hover:text-[#E5ECF5] group-hover:opacity-100"
                   aria-label="Delete chart"
                 >
                   <X className="h-3 w-3" />

@@ -25,13 +25,13 @@ export default function ConversationsBar({
   onSelect,
 }: ConversationsBarProps) {
   return (
-    <aside className="w-full rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm lg:w-64">
+    <aside className="w-full rounded-xl border border-[#2a3b5a] bg-[#14223a]/90 p-4 shadow-sm lg:w-64">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">Conversations</h3>
-        <span className="text-xs text-slate-400">{conversations.length}</span>
+        <h3 className="text-sm font-semibold text-[#C7D2E6]">Conversations</h3>
+        <span className="text-xs text-[#93A4BD]">{conversations.length}</span>
       </div>
       {conversations.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
+        <div className="mt-4 rounded-lg border border-dashed border-[#2a3b5a] p-4 text-center text-xs text-[#93A4BD]">
           No conversations yet.
         </div>
       ) : (
@@ -39,7 +39,7 @@ export default function ConversationsBar({
           {conversations.map((conversation) => (
             <div
               key={conversation.sessionId}
-              className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300"
+              className="rounded-lg border border-[#2a3b5a] bg-[#111c2e] p-3 shadow-sm transition hover:border-[#3a5177]"
               role="button"
               tabIndex={0}
               onClick={() => onSelect?.(conversation)}
@@ -50,10 +50,10 @@ export default function ConversationsBar({
                 }
               }}
             >
-              <p className="text-sm font-semibold text-slate-800">
+              <p className="text-sm font-semibold text-[#E5ECF5]">
                 {conversation.title}
               </p>
-              <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-2 flex items-center justify-between text-xs text-[#93A4BD]">
                 <span>{conversation.messageCount} messages</span>
                 <span>{formatTimestamp(conversation.updatedAt)}</span>
               </div>

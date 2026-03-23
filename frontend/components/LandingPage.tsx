@@ -490,30 +490,48 @@ export default function LandingPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e2e8f0_0%,_#f8fafc_35%,_#f1f5f9_100%)] text-slate-900">
-      <nav className="flex w-full items-center justify-end border-b border-slate-200 bg-white/70 px-6 py-4 backdrop-blur">
-        <SignedOut>
-          <SignInButton mode="modal">
-            <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
-              Log in
-            </button>
-          </SignInButton>
-        </SignedOut>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#253454_0%,_#101a2b_45%,_#0c1422_100%)] text-[#E5ECF5]">
+      <nav className="grid w-full grid-cols-3 items-center border-b border-[#2a3b5a] bg-gradient-to-r from-[#16263f]/95 via-[#172944]/95 to-[#14223a]/95 px-6 py-4 backdrop-blur shadow-[0_12px_30px_-20px_rgba(37,99,235,0.5)]">
+        <div className="hidden sm:block" />
+        <div className="text-center text-sm font-semibold tracking-[0.18em] text-[#c7d2e6]">
+          Supa-Connect
+        </div>
+        <div className="flex items-center justify-end">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]">
+                Log in
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+        </div>
       </nav>
 
       <SignedOut>
         <section className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-6 text-center">
-          <h1 className="text-balance text-5xl font-semibold tracking-tight text-slate-900 md:text-7xl">
-            AI SQL &amp; Analytics Agent
+          <h1 className="text-balance text-5xl font-semibold tracking-tight text-[#E5ECF5] md:text-7xl">
+            Supa-Connect : AI Powered SQL &amp; Analytics
           </h1>
           <SignInButton mode="modal">
-            <button className="mt-8 rounded-md bg-slate-900 px-8 py-3 text-base font-semibold text-white transition hover:bg-slate-700">
+            <button className="mt-8 rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-8 py-3 text-base font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]">
               Try it out for free
             </button>
           </SignInButton>
+          <p
+            className="mt-6 max-w-2xl text-sm italic text-[#A7B6CC]"
+            style={{
+              fontFamily:
+                '"Caveat", "Patrick Hand", "Bradley Hand", "Comic Sans MS", cursive',
+            }}
+          >
+            Connect to your supabase project and chat with it to extract data-driven insights.
+          </p>
+          <p className="mt-3 text-xs font-medium tracking-[0.18em] text-[#7c8eab]">
+            © {new Date().getFullYear()} Supa-Connect. All rights reserved.
+          </p>
         </section>
       </SignedOut>
 
@@ -526,14 +544,14 @@ export default function LandingPage() {
                 : "max-w-4xl"
             }`}
           >
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/80 p-2 shadow-sm">
+            <div className="flex items-center gap-3 rounded-2xl border border-[#2a3b5a] bg-gradient-to-r from-[#16263f] via-[#192d49] to-[#16263f] p-2 shadow-[0_18px_36px_-26px_rgba(59,130,246,0.7)] ring-1 ring-[#2f4163]">
               <button
                 type="button"
                 onClick={() => setActiveTab("sql")}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   activeTab === "sql"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-[linear-gradient(135deg,_#3B82F6,_#2563EB)] text-white shadow-[0_12px_22px_-12px_rgba(59,130,246,0.9)]"
+                    : "text-[#A7B6CC] hover:bg-[#1b2f4b]"
                 }`}
               >
                 SQL Agent
@@ -543,8 +561,8 @@ export default function LandingPage() {
                 onClick={() => setActiveTab("analytics")}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   activeTab === "analytics"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-[linear-gradient(135deg,_#3B82F6,_#2563EB)] text-white shadow-[0_12px_22px_-12px_rgba(59,130,246,0.9)]"
+                    : "text-[#A7B6CC] hover:bg-[#1b2f4b]"
                 }`}
               >
                 Analytics Agent
@@ -552,10 +570,10 @@ export default function LandingPage() {
             </div>
 
             {isStatusLoading ? (
-              <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
-                <div className="flex flex-col items-center justify-center gap-3 text-slate-600">
+              <div className="mt-10 rounded-2xl border border-dashed border-[#2a3b5a] bg-[#14223a]/85 px-6 py-16 text-center">
+                <div className="flex flex-col items-center justify-center gap-3 text-[#A7B6CC]">
                   <span
-                    className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+                    className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3b5a] border-t-[#7aa2f7]"
                     aria-hidden="true"
                   />
                   <p className="text-sm font-semibold">Loading your data...</p>
@@ -564,7 +582,7 @@ export default function LandingPage() {
             ) : isConnected ? (
               activeTab === "sql" ? (
                 <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
-                  <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
+                  <div className="w-full max-w-4xl rounded-2xl border border-[#2a3b5a] bg-[#14223a]/90 px-6 py-8 text-left shadow-[0_22px_44px_-28px_rgba(8,12,20,0.65)]">
                     <SqlChatbot
                       onLogout={handleDisconnect}
                       activeConversation={activeConversation}
@@ -579,7 +597,7 @@ export default function LandingPage() {
                 </div>
               ) : (
                 <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
-                  <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/80 px-6 py-8 text-left shadow-sm">
+                  <div className="w-full max-w-4xl rounded-2xl border border-[#2a3b5a] bg-[#14223a]/90 px-6 py-8 text-left shadow-[0_22px_44px_-28px_rgba(8,12,20,0.65)]">
                     <AnalyticsAgent
                       onLogout={handleDisconnect}
                       libraryCharts={libraryCharts}
@@ -596,11 +614,11 @@ export default function LandingPage() {
                 </div>
               )
             ) : (
-              <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
+              <div className="mt-10 rounded-2xl border border-dashed border-[#2a3b5a] bg-[#14223a]/85 px-6 py-16 text-center">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="inline-flex h-20 w-20 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-5xl font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  className="inline-flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#2a3b5a] bg-[#14223a] text-5xl font-semibold text-[#7aa2f7] transition hover:border-[#3a5177] hover:text-[#3B82F6]"
                   aria-label={`Open ${
                     activeTab === "sql" ? "SQL" : "Analytics"
                   } connection modal`}
@@ -615,27 +633,27 @@ export default function LandingPage() {
 
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#05070c]/70 px-6"
           role="dialog"
           aria-modal="true">
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 text-left shadow-xl">
-            <h2 className="text-xl font-semibold text-slate-900">
+          <div className="relative w-full max-w-lg rounded-2xl border border-[#2a3b5a] bg-gradient-to-br from-[#16263f] via-[#172944] to-[#14223a] p-6 text-left shadow-2xl">
+            <h2 className="text-xl font-semibold text-[#E5ECF5]">
               Connect to Supabase
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-[#A7B6CC]">
               Enter your project ref and authorize access.
             </p>
-            <label className="mt-4 block text-sm font-semibold text-slate-700">
+            <label className="mt-4 block text-sm font-semibold text-[#C7D2E6]">
               Project ref
               <input
                 type="text"
                 placeholder="your-project-ref"
                 value={projectRef}
                 onChange={(event) => setProjectRef(event.target.value)}
-                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
+                className="mt-2 w-full rounded-md border border-[#344b74] bg-[#111c2e] px-3 py-2 text-sm text-[#E5ECF5] shadow-sm focus:border-[#3B82F6] focus:outline-none"
               />
             </label>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-[#93A4BD]">
               Find your project ref in Supabase Dashboard -&gt; Settings -&gt; General.
             </p>
 
@@ -645,7 +663,7 @@ export default function LandingPage() {
               </p>
             )}
             {connectStatus && (
-              <p className="mt-4 text-sm font-semibold text-emerald-700">
+              <p className="mt-4 text-sm font-semibold text-emerald-300">
                 {connectStatus}
               </p>
             )}
@@ -655,14 +673,14 @@ export default function LandingPage() {
                 type="button"
                 onClick={handleConnect}
                 disabled={!projectRef.trim() || isConnecting}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#435884]"
               >
                 {isConnecting ? "Authorizing..." : "Authorize with Supabase"}
               </button>
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                className="rounded-md border border-[#344b74] px-4 py-2 text-sm font-semibold text-[#C7D2E6] transition hover:bg-[#1b2f4b]"
               >
                 Close
               </button>
