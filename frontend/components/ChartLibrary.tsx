@@ -95,7 +95,7 @@ export default function ChartLibrary({
           {charts.map((chart, index) => (
             <div
               key={`${chart.savedAt}-${index}`}
-              className="group relative rounded-lg border border-[#2a3b5a] bg-[#111c2e] p-2 shadow-sm transition hover:border-[#3a5177]"
+              className="group relative overflow-hidden rounded-lg border border-[#2a3b5a] bg-[#111c2e] p-2 shadow-sm transition hover:border-[#3a5177]"
               role="button"
               tabIndex={0}
               onClick={() => onSelect?.(chart)}
@@ -118,13 +118,15 @@ export default function ChartLibrary({
                   <X className="h-3 w-3" />
                 </button>
               )}
-              <VegaLite
-                spec={buildThumbnailSpec(chart.spec)}
-                data={{ values: chart.data }}
-                actions={false}
-                className="w-full"
-                style={{ width: "100%" }}
-              />
+              <div className="overflow-hidden">
+                <VegaLite
+                  spec={buildThumbnailSpec(chart.spec)}
+                  data={{ values: chart.data }}
+                  actions={false}
+                  className="w-full"
+                  style={{ width: "100%" }}
+                />
+              </div>
             </div>
           ))}
         </div>
