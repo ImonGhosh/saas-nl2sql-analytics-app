@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_
 from llm_provider import build_openai_model
 from mcp_service import build_mcp_url
 
+logger = logging.getLogger("mcp")
 
 @dataclass
 class SqlAgentDeps:
@@ -248,6 +250,12 @@ async def run_sql_agent(
     deps = SqlAgentDeps(metadata=metadata, mcp_url=mcp_url)
 
     last_sql: Optional[str] = None
+    logger.info(
+        "SQL agent run started. user_id=%s session_id=%s question_length=%s",
+        trace_user_id,
+        trace_session_id,
+        len(question),
+    )
 
     async def capture_tool_call(
         ctx: RunContext[SqlAgentDeps],
@@ -297,6 +305,11 @@ async def run_sql_agent(
             span_metadata["sql"] = last_sql
         end_span(span, metadata=span_metadata)
     except Exception as exc:
+        logger.exception(
+            "SQL agent run failed. user_id=%s session_id=%s",
+            trace_user_id,
+            trace_session_id,
+        )
         span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
         span_metadata["success"] = False
         span_metadata["error"] = str(exc)
@@ -305,4 +318,10 @@ async def run_sql_agent(
         end_span(span, metadata=span_metadata, error=str(exc))
         raise
 
+    logger.info(
+        "SQL agent run completed. user_id=%s session_id=%s has_sql=%s",
+        trace_user_id,
+        trace_session_id,
+        bool(last_sql),
+    )
     return {"answer": str(result.output), "sql": last_sql}

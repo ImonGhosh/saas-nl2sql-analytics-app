@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_
 from llm_provider import build_openai_model
 from mcp_service import build_mcp_url
 
+logger = logging.getLogger("mcp")
 
 class ChartQueryResult(BaseModel):
     sql: str = Field(..., description="The SQL query executed to fetch chart data.")
@@ -481,6 +483,12 @@ async def run_chart_query_agent(
     last_sql: Optional[str] = None
     last_rows: Optional[List[Dict[str, Any]]] = None
     last_columns: Optional[List[str]] = None
+    logger.info(
+        "Chart query agent started. user_id=%s session_id=%s question_length=%s",
+        trace_user_id,
+        trace_session_id,
+        len(question),
+    )
 
     async def capture_tool_call(
         ctx: RunContext[ChartQueryDeps],
@@ -535,6 +543,11 @@ async def run_chart_query_agent(
             span_metadata["sql"] = last_sql
         end_span(span, metadata=span_metadata)
     except Exception as exc:
+        logger.exception(
+            "Chart query agent failed. user_id=%s session_id=%s",
+            trace_user_id,
+            trace_session_id,
+        )
         span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
         span_metadata["success"] = False
         span_metadata["error"] = str(exc)
@@ -548,6 +561,12 @@ async def run_chart_query_agent(
     if last_rows is None:
         raise RuntimeError("Chart query agent returned no rows.")
 
+    logger.info(
+        "Chart query agent completed. user_id=%s session_id=%s rows=%s",
+        trace_user_id,
+        trace_session_id,
+        len(last_rows),
+    )
     return ChartQueryResult(sql=last_sql, data=last_rows, columns=last_columns)
 
 
@@ -575,6 +594,12 @@ async def run_chart_spec_agent(
     span_metadata: Dict[str, Any] = {"model": _get_chart_spec_model(), "sql": sql}
     span = start_span(trace, name="chart_spec_agent.run", metadata=span_metadata)
     start_ms = time.perf_counter()
+    logger.info(
+        "Chart spec agent started. user_id=%s session_id=%s rows=%s",
+        trace_user_id,
+        trace_session_id,
+        len(data),
+    )
     try:
         async with agent:
             result = await agent.run(
@@ -588,6 +613,11 @@ async def run_chart_spec_agent(
         span_metadata["success"] = True
         end_span(span, metadata=span_metadata)
     except Exception as exc:
+        logger.exception(
+            "Chart spec agent failed. user_id=%s session_id=%s",
+            trace_user_id,
+            trace_session_id,
+        )
         span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
         span_metadata["success"] = False
         span_metadata["error"] = str(exc)
@@ -595,6 +625,11 @@ async def run_chart_spec_agent(
         raise
 
     output = result.output
+    logger.info(
+        "Chart spec agent completed. user_id=%s session_id=%s",
+        trace_user_id,
+        trace_session_id,
+    )
     return ChartResponse(
         summary=output.summary,
         chart_spec=output.chart_spec,

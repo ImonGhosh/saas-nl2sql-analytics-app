@@ -387,6 +387,7 @@ def _list_conversations(user_id: str) -> List[ConversationSummary]:
 
 
 init_mcp_db()
+logger.info("Backend startup complete. use_s3=%s", USE_S3)
 
 
 @app.get("/api", response_class=PlainTextResponse)
@@ -402,6 +403,7 @@ async def mcp_auth_start(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> McpAuthStartResponse:
     user_id = _get_user_id(creds)
+    logger.info("MCP auth start requested. user_id=%s project_ref=%s", user_id, payload.project_ref)
     try:
         auth_url = await create_authorization_url(user_id, payload.project_ref)
     except ValueError as exc:
@@ -425,6 +427,7 @@ async def mcp_auth_callback(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> str:
     user_id = _get_user_id(creds)
+    logger.info("MCP auth callback received. user_id=%s state=%s", user_id, payload.state)
     try:
         await handle_auth_callback(user_id, payload.code, payload.state)
     except ValueError as exc:
@@ -439,6 +442,7 @@ async def mcp_auth_callback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc) if debug else "OAuth callback failed.",
         ) from exc
+    logger.info("MCP auth callback completed. user_id=%s", user_id)
     return "Ready"
 
 
@@ -447,7 +451,9 @@ async def mcp_status(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> McpStatusResponse:
     user_id = _get_user_id(creds)
-    return McpStatusResponse(connected=has_active_connection(user_id))
+    connected = has_active_connection(user_id)
+    logger.debug("MCP status checked. user_id=%s connected=%s", user_id, connected)
+    return McpStatusResponse(connected=connected)
 
 
 @app.post("/mcp/disconnect", response_class=PlainTextResponse)
@@ -455,11 +461,13 @@ async def mcp_disconnect(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> str:
     user_id = _get_user_id(creds)
+    logger.info("MCP disconnect requested. user_id=%s", user_id)
     disconnect_user(user_id)
     await clear_cached_metadata(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)
     _delete_library(user_id)
+    logger.info("MCP disconnect completed. user_id=%s", user_id)
     return "Disconnected"
 
 
@@ -472,16 +480,17 @@ async def sql_query(
     session_id = payload.session_id or uuid4().hex
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
-    print(f'Cached Metadata SQL Query: {metadata}')
     if not metadata:
+        logger.info("Metadata cache miss for SQL query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
-        print(f'Supabase Metadata SQL Query: {metadata}')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="No database metadata found for user. Connect Supabase first.",
             )
         await set_cached_metadata(user_id, metadata_cache_key, metadata)
+    else:
+        logger.debug("Metadata cache hit for SQL query. user_id=%s", user_id)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
@@ -492,6 +501,13 @@ async def sql_query(
 
     conversation = _load_conversation(user_id, session_id)
     message_history = conversation[-10:]
+    logger.info(
+        "SQL query started. user_id=%s session_id=%s question_length=%s history_count=%s",
+        user_id,
+        session_id,
+        len(payload.question),
+        len(message_history),
+    )
 
     trace_id = uuid4().hex
     trace_metadata = {
@@ -542,6 +558,12 @@ async def sql_query(
     )
     _save_conversation(user_id, session_id, conversation)
 
+    logger.info(
+        "SQL query completed. user_id=%s session_id=%s has_sql=%s",
+        user_id,
+        session_id,
+        bool(sql),
+    )
     return SqlQueryResponse(answer=answer, sql=sql, session_id=session_id)
 
 
@@ -551,6 +573,9 @@ async def sql_conversations(
 ) -> ConversationListResponse:
     user_id = _get_user_id(creds)
     conversations = _list_conversations(user_id)
+    logger.info(
+        "Conversations listed. user_id=%s count=%s", user_id, len(conversations)
+    )
     return ConversationListResponse(conversations=conversations)
 
 
@@ -580,6 +605,12 @@ async def sql_conversation_detail(
                     detail="Conversation not found.",
                 )
 
+    logger.info(
+        "Conversation loaded. user_id=%s session_id=%s message_count=%s",
+        user_id,
+        session_id,
+        len(messages),
+    )
     return ConversationDetailResponse(session_id=session_id, messages=messages)
 
 
@@ -591,16 +622,17 @@ async def charts_query(
     user_id = _get_user_id(creds)
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
-    print(f'Cached Metadata Charts Query: {metadata}')
     if not metadata:
+        logger.info("Metadata cache miss for chart query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
-        print(f'Supabase Metadata Charts Query: {metadata}')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="No database metadata found for user. Connect Supabase first.",
             )
         await set_cached_metadata(user_id, metadata_cache_key, metadata)
+    else:
+        logger.debug("Metadata cache hit for chart query. user_id=%s", user_id)
     try:
         tokens = await get_valid_tokens(user_id)
     except Exception as exc:
@@ -652,6 +684,12 @@ async def charts_query(
             detail=str(exc) if debug else "Chart agent failed.",
         ) from exc
 
+    logger.info(
+        "Chart query completed. user_id=%s sql_length=%s rows=%s",
+        user_id,
+        len(query_result.sql) if query_result.sql else 0,
+        len(query_result.data),
+    )
     return response
 
 
@@ -666,6 +704,7 @@ async def charts_last(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No saved chart found.",
         )
+    logger.info("Chart loaded. user_id=%s", user_id)
     return chart
 
 
@@ -680,6 +719,7 @@ async def charts_suggestions(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No chart suggestions found.",
         )
+    logger.info("Chart suggestions loaded. user_id=%s", user_id)
     return suggestions
 
 
@@ -689,6 +729,7 @@ async def charts_library(
 ) -> ChartLibraryResponse:
     user_id = _get_user_id(creds)
     charts = _load_library(user_id)
+    logger.info("Chart library loaded. user_id=%s count=%s", user_id, len(charts))
     return ChartLibraryResponse(charts=charts)
 
 
@@ -714,6 +755,7 @@ async def charts_library_save(
     )
     charts.append(item)
     _save_library(user_id, charts)
+    logger.info("Chart saved to library. user_id=%s saved_at=%s", user_id, saved_at)
     return item
 
 
@@ -731,4 +773,5 @@ async def charts_library_delete(
             detail="Chart not found in library.",
         )
     _save_library(user_id, filtered)
+    logger.info("Chart removed from library. user_id=%s saved_at=%s", user_id, saved_at)
     return ChartLibraryResponse(charts=filtered)

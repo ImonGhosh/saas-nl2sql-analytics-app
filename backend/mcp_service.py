@@ -160,6 +160,7 @@ def init_mcp_db() -> None:
             """
         )
         conn.commit()
+    logger.info("MCP database initialized at %s", MCP_DB_PATH)
 
 
 def _get_oauth_client(authorization_server: str) -> Optional[Dict[str, Any]]:
@@ -349,13 +350,16 @@ def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
 async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
     tokens = _load_tokens(user_id)
     if not tokens:
+        logger.warning("MCP tokens not found. user_id=%s", user_id)
         raise RuntimeError("No MCP tokens found for user.")
 
     if _token_expired(tokens.get("expires_at")):
+        logger.info("MCP access token expired; refreshing. user_id=%s", user_id)
         refresh_token = tokens.get("refresh_token")
         try:
             token_data = await _refresh_access_token(refresh_token or "")
         except httpx.HTTPError as exc:
+            logger.exception("MCP token refresh failed. user_id=%s", user_id)
             raise RuntimeError(
                 "Supabase connection expired. Please reconnect your MCP connection."
             ) from exc
@@ -377,6 +381,7 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
         tokens = _load_tokens(user_id) or tokens
 
     if not tokens.get("access_token"):
+        logger.error("MCP access token missing after refresh. user_id=%s", user_id)
         raise RuntimeError("No access token available for MCP connection.")
     return tokens
 
@@ -387,6 +392,7 @@ def disconnect_user(user_id: str) -> None:
         conn.execute("delete from mcp_auth_states where user_id = ?", (user_id,))
         conn.commit()
     delete_metadata(user_id)
+    logger.info("MCP user disconnected and metadata cleared. user_id=%s", user_id)
 
 
 def has_active_connection(user_id: str) -> bool:
@@ -445,6 +451,7 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
     challenge = _code_challenge(verifier)
 
     _store_auth_state(state, user_id, project_ref, verifier, SUPABASE_OAUTH_AUTHORIZE_URL)
+    logger.info("MCP auth state stored. user_id=%s project_ref=%s", user_id, project_ref)
 
     params = {
         "response_type": "code",
@@ -456,7 +463,9 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
     }
     if SUPABASE_OAUTH_ORG_SLUG:
         params["organization_slug"] = SUPABASE_OAUTH_ORG_SLUG
-    return f"{SUPABASE_OAUTH_AUTHORIZE_URL}?{urlencode(params)}"
+    url = f"{SUPABASE_OAUTH_AUTHORIZE_URL}?{urlencode(params)}"
+    logger.info("MCP authorization URL created. user_id=%s", user_id)
+    return url
 
 
 async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
@@ -464,6 +473,7 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     if not auth_state or auth_state["user_id"] != user_id:
         raise ValueError("Invalid or expired OAuth state.")
 
+    logger.info("MCP auth callback handling started. user_id=%s", user_id)
     async with httpx.AsyncClient(timeout=20) as client:
         payload = {
             "grant_type": "authorization_code",
@@ -493,9 +503,11 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
         expires_at=expires_at,
     )
     _delete_auth_state(state)
+    logger.info("MCP tokens stored. user_id=%s project_ref=%s", user_id, auth_state["project_ref"])
 
     metadata = await extract_metadata(user_id)
     _store_metadata(user_id, auth_state["project_ref"], metadata)
+    logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
     try:
         trace_id = uuid4().hex
         trace_metadata = {
@@ -513,6 +525,7 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
             trace_metadata=trace_metadata,
         )
         _save_suggestions(user_id, suggestions)
+        logger.info("Chart suggestions generated and saved. user_id=%s", user_id)
     except Exception:
         logger.exception("Chart suggestions generation failed")
 
@@ -819,6 +832,7 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
     if not token_info:
         raise RuntimeError("No MCP tokens found for user.")
 
+    logger.info("Metadata extraction started. user_id=%s", user_id)
     project_ref = token_info["project_ref"]
     access_token = token_info["access_token"]
     mcp_url = _build_mcp_url(project_ref)
@@ -979,7 +993,7 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     expected_keys={"table_schema", "table_name", "column_name", "column_comment"},
                 )
 
-                return _build_metadata(
+                metadata = _build_metadata(
                     tables_rows,
                     columns_rows,
                     constraints_rows,
@@ -988,3 +1002,12 @@ async def extract_metadata(user_id: str) -> Dict[str, Any]:
                     mcp_url,
                     project_ref,
                 )
+                table_count = sum(
+                    len(schema.get("tables", []) or []) for schema in metadata.get("schemas", [])
+                )
+                logger.info(
+                    "Metadata extraction completed. user_id=%s tables=%s",
+                    user_id,
+                    table_count,
+                )
+                return metadata

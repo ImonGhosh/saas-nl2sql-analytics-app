@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from pydantic_ai import Agent, RunContext
 
 from langfuse_tracing import end_span, extract_prompt_tokens, start_span, start_trace
 from llm_provider import build_openai_model
+
+logger = logging.getLogger("mcp")
 
 class ChartSuggestions(BaseModel):
     suggestions: List[str] = Field(
@@ -82,6 +85,11 @@ async def run_chart_suggestions_agent(
     span_metadata: Dict[str, Any] = {"model": _get_suggestions_model()}
     span = start_span(trace, name="chart_suggestions_agent.run", metadata=span_metadata)
     start_ms = time.perf_counter()
+    logger.info(
+        "Chart suggestions agent started. user_id=%s session_id=%s",
+        trace_user_id,
+        trace_session_id,
+    )
     try:
         async with agent:
             result = await agent.run(
@@ -95,9 +103,19 @@ async def run_chart_suggestions_agent(
         span_metadata["success"] = True
         end_span(span, metadata=span_metadata)
     except Exception as exc:
+        logger.exception(
+            "Chart suggestions agent failed. user_id=%s session_id=%s",
+            trace_user_id,
+            trace_session_id,
+        )
         span_metadata["latency_ms"] = round((time.perf_counter() - start_ms) * 1000, 2)
         span_metadata["success"] = False
         span_metadata["error"] = str(exc)
         end_span(span, metadata=span_metadata, error=str(exc))
         raise
+    logger.info(
+        "Chart suggestions agent completed. user_id=%s session_id=%s",
+        trace_user_id,
+        trace_session_id,
+    )
     return result.output
