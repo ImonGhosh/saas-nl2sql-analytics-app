@@ -6,7 +6,7 @@ import {
   SignedOut,
   UserButton,
   useAuth,
-} from "@clerk/nextjs";
+} from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { VisualizationSpec } from "vega-embed";
@@ -16,9 +16,8 @@ import ConversationsBar, {
 } from "./ConversationsBar";
 import SqlChatbot from "./SqlChatbot";
 import AnalyticsAgent from "./AnalyticsAgent";
+import { BACKEND_URL } from "../lib/backend";
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
@@ -124,7 +123,7 @@ export default function LandingPage() {
           return;
         }
 
-        const response = await fetch(`${backendUrl}/mcp/status`, {
+        const response = await fetch(`${BACKEND_URL}/mcp/status`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -162,7 +161,7 @@ export default function LandingPage() {
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/charts/library`, {
+        const response = await fetch(`${BACKEND_URL}/charts/library`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -215,7 +214,7 @@ export default function LandingPage() {
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/sql/conversations`, {
+        const response = await fetch(`${BACKEND_URL}/sql/conversations`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -271,7 +270,7 @@ export default function LandingPage() {
         return;
       }
 
-      await fetch(`${backendUrl}/mcp/disconnect`, {
+      await fetch(`${BACKEND_URL}/mcp/disconnect`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -298,7 +297,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/sql/conversations/${encodeURIComponent(
+        `${BACKEND_URL}/sql/conversations/${encodeURIComponent(
           conversation.sessionId
         )}`,
         {
@@ -330,7 +329,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/charts/library/${encodeURIComponent(chart.savedAt)}`,
+        `${BACKEND_URL}/charts/library/${encodeURIComponent(chart.savedAt)}`,
         {
           method: "DELETE",
           headers: {
@@ -375,7 +374,7 @@ export default function LandingPage() {
       const token = await getToken({ template: clerkJwtTemplate });
       if (!token) return;
 
-      const response = await fetch(`${backendUrl}/sql/conversations`, {
+      const response = await fetch(`${BACKEND_URL}/sql/conversations`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -425,7 +424,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/sql/conversations/${encodeURIComponent(
+        `${BACKEND_URL}/sql/conversations/${encodeURIComponent(
           conversation.sessionId
         )}`,
         {
@@ -451,29 +450,33 @@ export default function LandingPage() {
 
       const sessionId = payload.session_id ?? conversation.sessionId;
       const messages = Array.isArray(payload.messages)
-        ? payload.messages
-            .map((message) => {
+        ? payload.messages.map(
+            (message): {
+              role: "user" | "assistant";
+              content: string;
+              timestamp?: string;
+              sql?: string;
+            } | null => {
               if (!message.role || !message.content) return null;
               return {
                 role: message.role,
                 content: message.content,
-                timestamp: message.timestamp,
-                sql: message.sql,
+                ...(message.timestamp != null ? { timestamp: message.timestamp } : {}),
+                ...(message.sql != null ? { sql: message.sql } : {}),
               };
-            })
-            .filter(
-              (
-                message
-              ): message is {
-                role: "user" | "assistant";
-                content: string;
-                timestamp?: string;
-                sql?: string;
-              } => message !== null
-            )
+            }
+          )
         : [];
+      const safeMessages = messages.filter(
+        (message): message is {
+          role: "user" | "assistant";
+          content: string;
+          timestamp?: string;
+          sql?: string;
+        } => message !== null
+      );
 
-      setActiveConversation({ sessionId, messages });
+      setActiveConversation({ sessionId, messages: safeMessages });
     } catch {
       setActiveConversation(null);
     }
@@ -493,7 +496,7 @@ export default function LandingPage() {
       }
 
       setConnectStatus("Authorizing...");
-      const response = await fetch(`${backendUrl}/mcp/auth/start`, {
+      const response = await fetch(`${BACKEND_URL}/mcp/auth/start`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -547,7 +550,7 @@ export default function LandingPage() {
       <SignedOut>
         <section className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-6 text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-tight text-[#E5ECF5] md:text-7xl">
-            Supa-Connect : AI Powered SQL &amp; Analytics
+            Supa-Connect :<br /> AI Powered SQL &amp; Visual Analytics
           </h1>
           <SignInButton mode="modal">
             <button className="mt-8 rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-8 py-3 text-base font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]">

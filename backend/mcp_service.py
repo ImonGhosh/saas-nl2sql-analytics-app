@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import secrets
-import sqlite3
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,10 +16,28 @@ from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
 
 from chart_suggestions_agent import ChartSuggestions, run_chart_suggestions_agent
-from supabase_store import delete_metadata, fetch_metadata, upsert_metadata
-
-MCP_DB_PATH = Path(
-    os.getenv("MCP_DB_PATH", str(Path(__file__).resolve().parent / "mcp.sqlite3"))
+from redis_cache import (
+    AUTH_STATE_CACHE_TTL_SECONDS,
+    TOKENS_CACHE_TTL_SECONDS,
+    clear_cached_auth_states,
+    clear_cached_tokens,
+    delete_cached_auth_state,
+    get_cached_auth_state,
+    get_cached_tokens,
+    set_cached_auth_state,
+    set_cached_tokens,
+)
+from supabase_store import (
+    delete_auth_state,
+    delete_auth_states_for_user,
+    delete_metadata,
+    delete_tokens,
+    fetch_auth_state,
+    fetch_metadata,
+    fetch_tokens,
+    insert_auth_state,
+    upsert_metadata,
+    upsert_tokens,
 )
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(Path(__file__).resolve().parent / "memory")))
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
@@ -112,156 +129,76 @@ def _oauth_client_auth() -> Tuple[Dict[str, str], Dict[str, str]]:
     return headers, payload
 
 
-def _connect_db() -> sqlite3.Connection:
-    MCP_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(MCP_DB_PATH)
-    conn.execute("pragma journal_mode = wal")
-    return conn
-
-
-def init_mcp_db() -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            create table if not exists oauth_clients (
-                authorization_server text primary key,
-                client_id text not null,
-                client_secret text,
-                token_endpoint_auth_method text,
-                created_at text not null,
-                updated_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists mcp_auth_states (
-                state text primary key,
-                user_id text not null,
-                project_ref text not null,
-                code_verifier text not null,
-                authorization_server text not null,
-                created_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists mcp_tokens (
-                user_id text primary key,
-                project_ref text not null,
-                access_token text not null,
-                refresh_token text,
-                token_type text,
-                scope text,
-                expires_at text,
-                updated_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists db_metadata (
-                user_id text primary key,
-                metadata_json text not null,
-                created_at text not null,
-                updated_at text not null
-            )
-            """
-        )
-        conn.commit()
-    logger.info("MCP database initialized at %s", MCP_DB_PATH)
-
-
-def _get_oauth_client(authorization_server: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select client_id, client_secret, token_endpoint_auth_method
-            from oauth_clients
-            where authorization_server = ?
-            """,
-            (authorization_server,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "client_id": row[0],
-            "client_secret": row[1],
-            "token_endpoint_auth_method": row[2],
-        }
-
-
-def _store_oauth_client(
-    authorization_server: str, client_id: str, client_secret: Optional[str], auth_method: str
-) -> None:
-    now = _now_iso()
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into oauth_clients (
-                authorization_server, client_id, client_secret, token_endpoint_auth_method,
-                created_at, updated_at
-            )
-            values (?, ?, ?, ?, ?, ?)
-            on conflict(authorization_server) do update set
-                client_id = excluded.client_id,
-                client_secret = excluded.client_secret,
-                token_endpoint_auth_method = excluded.token_endpoint_auth_method,
-                updated_at = excluded.updated_at
-            """,
-            (authorization_server, client_id, client_secret, auth_method, now, now),
-        )
-        conn.commit()
-
-
-def _store_auth_state(
+async def _store_auth_state(
     state: str,
     user_id: str,
     project_ref: str,
     code_verifier: str,
     authorization_server: str,
 ) -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into mcp_auth_states (
-                state, user_id, project_ref, code_verifier, authorization_server, created_at
-            )
-            values (?, ?, ?, ?, ?, ?)
-            """,
-            (state, user_id, project_ref, code_verifier, authorization_server, _now_iso()),
-        )
-        conn.commit()
+    created_at = _now_iso()
+    insert_auth_state(
+        state=state,
+        user_id=user_id,
+        project_ref=project_ref,
+        code_verifier=code_verifier,
+        authorization_server=authorization_server,
+        created_at=created_at,
+    )
+    await set_cached_auth_state(
+        user_id,
+        state,
+        {
+            "user_id": user_id,
+            "project_ref": project_ref,
+            "code_verifier": code_verifier,
+            "authorization_server": authorization_server,
+            "created_at": created_at,
+        },
+        ttl_seconds=AUTH_STATE_CACHE_TTL_SECONDS,
+    )
 
 
-def _load_auth_state(state: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select user_id, project_ref, code_verifier, authorization_server
-            from mcp_auth_states
-            where state = ?
-            """,
-            (state,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "user_id": row[0],
-            "project_ref": row[1],
-            "code_verifier": row[2],
-            "authorization_server": row[3],
-        }
+def _auth_state_expired(created_at: Optional[str]) -> bool:
+    parsed = _parse_iso(created_at)
+    if not parsed:
+        return True
+    return parsed <= (datetime.now(timezone.utc) - timedelta(seconds=AUTH_STATE_CACHE_TTL_SECONDS))
 
 
-def _delete_auth_state(state: str) -> None:
-    with _connect_db() as conn:
-        conn.execute("delete from mcp_auth_states where state = ?", (state,))
-        conn.commit()
+async def _load_auth_state(state: str, user_id: str) -> Optional[Dict[str, Any]]:
+    cached = await get_cached_auth_state(user_id, state)
+    if cached and not _auth_state_expired(cached.get("created_at")):
+        return cached
+
+    record = fetch_auth_state(state)
+    if not record:
+        return None
+    if _auth_state_expired(record.get("created_at")):
+        delete_auth_state(state)
+        await delete_cached_auth_state(user_id, state)
+        return None
+
+    await set_cached_auth_state(user_id, state, record, ttl_seconds=AUTH_STATE_CACHE_TTL_SECONDS)
+    return record
 
 
-def _store_tokens(
+async def _delete_auth_state(state: str, user_id: str) -> None:
+    delete_auth_state(state)
+    await delete_cached_auth_state(user_id, state)
+
+
+def _tokens_cache_ttl(expires_at: Optional[str]) -> int:
+    parsed = _parse_iso(expires_at)
+    if not parsed:
+        return TOKENS_CACHE_TTL_SECONDS
+    remaining = int((parsed - datetime.now(timezone.utc)).total_seconds())
+    if remaining <= 0:
+        return TOKENS_CACHE_TTL_SECONDS
+    return min(TOKENS_CACHE_TTL_SECONDS, remaining)
+
+
+async def _store_tokens(
     user_id: str,
     project_ref: str,
     access_token: str,
@@ -270,56 +207,41 @@ def _store_tokens(
     scope: Optional[str],
     expires_at: Optional[str],
 ) -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into mcp_tokens (
-                user_id, project_ref, access_token, refresh_token, token_type, scope, expires_at, updated_at
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(user_id) do update set
-                project_ref = excluded.project_ref,
-                access_token = excluded.access_token,
-                refresh_token = excluded.refresh_token,
-                token_type = excluded.token_type,
-                scope = excluded.scope,
-                expires_at = excluded.expires_at,
-                updated_at = excluded.updated_at
-            """,
-            (
-                user_id,
-                project_ref,
-                access_token,
-                refresh_token,
-                token_type,
-                scope,
-                expires_at,
-                _now_iso(),
-            ),
-        )
-        conn.commit()
+    updated_at = _now_iso()
+    upsert_tokens(
+        user_id=user_id,
+        project_ref=project_ref,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type=token_type,
+        scope=scope,
+        expires_at=expires_at,
+        updated_at=updated_at,
+    )
+    await set_cached_tokens(
+        user_id,
+        {
+            "project_ref": project_ref,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": token_type,
+            "scope": scope,
+            "expires_at": expires_at,
+            "updated_at": updated_at,
+        },
+        ttl_seconds=_tokens_cache_ttl(expires_at),
+    )
 
 
-def _load_tokens(user_id: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select project_ref, access_token, refresh_token, token_type, scope, expires_at
-            from mcp_tokens
-            where user_id = ?
-            """,
-            (user_id,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "project_ref": row[0],
-            "access_token": row[1],
-            "refresh_token": row[2],
-            "token_type": row[3],
-            "scope": row[4],
-            "expires_at": row[5],
-        }
+async def _load_tokens(user_id: str) -> Optional[Dict[str, Any]]:
+    cached = await get_cached_tokens(user_id)
+    if cached:
+        return cached
+    record = fetch_tokens(user_id)
+    if not record:
+        return None
+    await set_cached_tokens(user_id, record, ttl_seconds=_tokens_cache_ttl(record.get("expires_at")))
+    return record
 
 
 def _store_metadata(user_id: str, project_ref: str, metadata: Dict[str, Any]) -> None:
@@ -366,12 +288,12 @@ def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
     return fetch_metadata(user_id)
 
 
-def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
-    return _load_tokens(user_id)
+async def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
+    return await _load_tokens(user_id)
 
 
 async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
-    tokens = _load_tokens(user_id)
+    tokens = await _load_tokens(user_id)
     if not tokens:
         logger.warning("MCP tokens not found. user_id=%s", user_id)
         raise RuntimeError("No MCP tokens found for user.")
@@ -392,7 +314,7 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
             expires_at = (
                 datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             ).isoformat()
-        _store_tokens(
+        await _store_tokens(
             user_id=user_id,
             project_ref=tokens["project_ref"],
             access_token=token_data.get("access_token") or tokens["access_token"],
@@ -401,7 +323,7 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
             scope=token_data.get("scope") or tokens.get("scope"),
             expires_at=expires_at,
         )
-        tokens = _load_tokens(user_id) or tokens
+        tokens = await _load_tokens(user_id) or tokens
 
     if not tokens.get("access_token"):
         logger.error("MCP access token missing after refresh. user_id=%s", user_id)
@@ -409,17 +331,17 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
     return tokens
 
 
-def disconnect_user(user_id: str) -> None:
-    with _connect_db() as conn:
-        conn.execute("delete from mcp_tokens where user_id = ?", (user_id,))
-        conn.execute("delete from mcp_auth_states where user_id = ?", (user_id,))
-        conn.commit()
+async def disconnect_user(user_id: str) -> None:
+    delete_tokens(user_id)
+    delete_auth_states_for_user(user_id)
     delete_metadata(user_id)
+    await clear_cached_tokens(user_id)
+    await clear_cached_auth_states(user_id)
     logger.info("MCP user disconnected and metadata cleared. user_id=%s", user_id)
 
 
-def has_active_connection(user_id: str) -> bool:
-    return _load_tokens(user_id) is not None
+async def has_active_connection(user_id: str) -> bool:
+    return await _load_tokens(user_id) is not None
 
 
 def build_mcp_url(project_ref: str) -> str:
@@ -473,7 +395,7 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
     verifier = _code_verifier()
     challenge = _code_challenge(verifier)
 
-    _store_auth_state(state, user_id, project_ref, verifier, SUPABASE_OAUTH_AUTHORIZE_URL)
+    await _store_auth_state(state, user_id, project_ref, verifier, SUPABASE_OAUTH_AUTHORIZE_URL)
     logger.info("MCP auth state stored. user_id=%s project_ref=%s", user_id, project_ref)
 
     params = {
@@ -492,7 +414,7 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
 
 
 async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
-    auth_state = _load_auth_state(state)
+    auth_state = await _load_auth_state(state, user_id)
     if not auth_state or auth_state["user_id"] != user_id:
         raise ValueError("Invalid or expired OAuth state.")
 
@@ -516,7 +438,7 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     if expires_in is not None:
         expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
-    _store_tokens(
+    await _store_tokens(
         user_id=user_id,
         project_ref=auth_state["project_ref"],
         access_token=token_data.get("access_token"),
@@ -525,7 +447,7 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
         scope=token_data.get("scope"),
         expires_at=expires_at,
     )
-    _delete_auth_state(state)
+    await _delete_auth_state(state, user_id)
     logger.info("MCP tokens stored. user_id=%s project_ref=%s", user_id, auth_state["project_ref"])
 
     metadata = await extract_metadata(user_id)
@@ -851,7 +773,7 @@ def _build_metadata(
 
 
 async def extract_metadata(user_id: str) -> Dict[str, Any]:
-    token_info = _load_tokens(user_id)
+    token_info = await _load_tokens(user_id)
     if not token_info:
         raise RuntimeError("No MCP tokens found for user.")
 

@@ -1,0 +1,13 @@
+[
+  {
+    "role": "user",
+    "content": "Which tables are present ? Only provide the names.",
+    "timestamp": "2026-03-25T21:59:16.745369"
+  },
+  {
+    "role": "assistant",
+    "content": "branch_finance_kpis\nfinance_economics_dataset\nmarket_event_annotations",
+    "sql": null,
+    "timestamp": "2026-03-25T21:59:16.745369"
+  }
+]

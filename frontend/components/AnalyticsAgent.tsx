@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/clerk-react";
 import { BarChart3, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { VisualizationSpec } from "vega-embed";
 import type { LibraryChart } from "./ChartLibrary";
+import { BACKEND_URL } from "../lib/backend";
 
 const VegaLite = dynamic(
   () => import("react-vega").then((mod) => mod.VegaLite),
@@ -25,8 +26,6 @@ type AnalyticsAgentProps = {
   selectedChart?: LibraryChart | null;
 };
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
@@ -80,7 +79,7 @@ export default function AnalyticsAgent({
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/charts/suggestions`, {
+        const response = await fetch(`${BACKEND_URL}/charts/suggestions`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -137,7 +136,7 @@ export default function AnalyticsAgent({
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(`${backendUrl}/charts/query`, {
+      const response = await fetch(`${BACKEND_URL}/charts/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -188,7 +187,7 @@ export default function AnalyticsAgent({
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(`${backendUrl}/charts/library`, {
+      const response = await fetch(`${BACKEND_URL}/charts/library`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -313,7 +312,7 @@ export default function AnalyticsAgent({
               <VegaLite
                 spec={{
                   ...chartPayload.spec,
-                  width: "container",
+                  width: 600,
                   height: 360,
                   autosize: { type: "fit", contains: "padding" },
                 }}

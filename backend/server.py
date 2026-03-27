@@ -15,6 +15,10 @@ from pydantic import BaseModel, Field
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
+from secrets_manager import load_secrets  # noqa: E402
+
+load_secrets()
+
 LOG_LEVEL = os.getenv("LOG_LEVEL")
 if not LOG_LEVEL:
     LOG_LEVEL = (
@@ -34,7 +38,6 @@ from mcp_service import (  # noqa: E402
     get_valid_tokens,
     handle_auth_callback,
     has_active_connection,
-    init_mcp_db,
 )
 from redis_cache import (  # noqa: E402
     clear_cached_metadata,
@@ -69,8 +72,8 @@ logger = logging.getLogger("mcp")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -455,7 +458,6 @@ def _list_conversations(user_id: str) -> List[ConversationSummary]:
     return summaries
 
 
-init_mcp_db()
 logger.info("Backend startup complete. use_s3=%s", USE_S3)
 
 
@@ -464,6 +466,11 @@ async def api_endpoint(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> str:
     return "API Endpoint success"
+
+
+@app.get("/health", response_class=PlainTextResponse)
+async def health_check() -> str:
+    return "ok"
 
 
 @app.post("/mcp/auth/start", response_model=McpAuthStartResponse)
@@ -520,7 +527,7 @@ async def mcp_status(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> McpStatusResponse:
     user_id = _get_user_id(creds)
-    connected = has_active_connection(user_id)
+    connected = await has_active_connection(user_id)
     logger.debug("MCP status checked. user_id=%s connected=%s", user_id, connected)
     return McpStatusResponse(connected=connected)
 
@@ -531,7 +538,7 @@ async def mcp_disconnect(
 ) -> str:
     user_id = _get_user_id(creds)
     logger.info("MCP disconnect requested. user_id=%s", user_id)
-    disconnect_user(user_id)
+    await disconnect_user(user_id)
     await clear_cached_metadata(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)

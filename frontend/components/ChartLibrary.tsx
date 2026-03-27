@@ -25,15 +25,9 @@ type ChartLibraryProps = {
 };
 
 const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
-  const typedSpec = spec as VisualizationSpec & {
-    config?: {
-      axis?: Record<string, unknown>;
-      legend?: Record<string, unknown>;
-    };
-  };
+  const typedSpec = spec as VisualizationSpec;
   return {
     ...typedSpec,
-    title: null,
     width: 220,
     height: 120,
     autosize: { type: "fit", contains: "padding" },
@@ -41,11 +35,13 @@ const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
     config: {
       ...(typedSpec.config ?? {}),
       view: {
-        ...(typedSpec.config?.view ?? {}),
+        ...((typedSpec.config as { view?: Record<string, unknown> } | undefined)?.view ??
+          {}),
         stroke: null,
       },
       axis: {
-        ...(typedSpec.config?.axis ?? {}),
+        ...((typedSpec.config as { axis?: Record<string, unknown> } | undefined)?.axis ??
+          {}),
         labelFontSize: 8,
         titleFontSize: 0,
         tickSize: 0,
@@ -53,23 +49,26 @@ const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
         labelLimit: 60,
       },
       axisX: {
-        ...(typedSpec.config?.axisX ?? {}),
+        ...((typedSpec.config as { axisX?: Record<string, unknown> } | undefined)?.axisX ??
+          {}),
         labelAngle: 0,
         labelFontSize: 7,
       },
       axisY: {
-        ...(typedSpec.config?.axisY ?? {}),
+        ...((typedSpec.config as { axisY?: Record<string, unknown> } | undefined)?.axisY ??
+          {}),
         labelFontSize: 7,
       },
       legend: {
-        ...(typedSpec.config?.legend ?? {}),
+        ...((typedSpec.config as { legend?: Record<string, unknown> } | undefined)
+          ?.legend ?? {}),
         labelFontSize: 7,
         titleFontSize: 0,
         symbolSize: 40,
         orient: "bottom",
       },
-    },
-  };
+    } as VisualizationSpec["config"],
+  } as VisualizationSpec;
 };
 
 export default function ChartLibrary({

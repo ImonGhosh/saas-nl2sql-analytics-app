@@ -1,9 +1,9 @@
 {
   "suggestions": [
-    "Daily net revenue trend (net_order_amount by order_date)",
-    "Gross margin by product category (line_profit / line_revenue)",
-    "Discount impact: gross vs net revenue by sales_channel",
-    "Return rate and lost revenue by region using is_returned",
-    "Top-selling products by quantity and revenue (product_name)"
+    "Monthly net_order_amount trend by region for revenue growth",
+    "Top product_category by line_revenue and quantity sold",
+    "Gross_order_amount vs discount_amount effect on net_order_amount",
+    "Returned orders rate by sales_channel to reduce churn",
+    "Average shipping_days vs order_status delays affecting fulfillment"
   ]
 }
