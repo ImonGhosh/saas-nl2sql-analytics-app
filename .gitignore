@@ -79,3 +79,4 @@ terraform.rc
 **/lambda_build/
 **/lambda-package*.zip
 **/lambda_package*.zip
+**/lambda-*.zip
