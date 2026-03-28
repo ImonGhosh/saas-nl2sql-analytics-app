@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from supabase import create_client
@@ -14,6 +15,7 @@ _supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 _METADATA_TABLE = "mcp_metadata"
 _TOKENS_TABLE = "mcp_tokens"
 _AUTH_STATES_TABLE = "mcp_auth_states"
+_METADATA_JOBS_TABLE = "mcp_metadata_jobs"
 logger = logging.getLogger("mcp")
 
 
@@ -163,3 +165,48 @@ def delete_auth_state(state: str) -> None:
 def delete_auth_states_for_user(user_id: str) -> None:
     _supabase.table(_AUTH_STATES_TABLE).delete().eq("user_id", user_id).execute()
     logger.info("Supabase auth states deleted. user_id=%s", user_id)
+
+
+def upsert_metadata_job(
+    user_id: str,
+    project_ref: str,
+    status: str,
+    error_message: Optional[str] = None,
+) -> None:
+    payload = {
+        "user_id": user_id,
+        "project_ref": project_ref,
+        "status": status,
+        "error_message": error_message,
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    _supabase.table(_METADATA_JOBS_TABLE).upsert(payload).execute()
+    logger.info("Supabase metadata job upserted. user_id=%s status=%s", user_id, status)
+
+
+def fetch_metadata_job(user_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        response = (
+            _supabase.table(_METADATA_JOBS_TABLE)
+            .select("user_id, project_ref, status, error_message, updated_at")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        logger.exception("Supabase metadata job fetch failed. user_id=%s", user_id)
+        return None
+    if response is None:
+        logger.debug("Supabase metadata job missing. user_id=%s", user_id)
+        return None
+    data = getattr(response, "data", None)
+    if not isinstance(data, dict):
+        logger.debug("Supabase metadata job missing. user_id=%s", user_id)
+        return None
+    logger.info("Supabase metadata job fetched. user_id=%s", user_id)
+    return data
+
+
+def delete_metadata_job(user_id: str) -> None:
+    _supabase.table(_METADATA_JOBS_TABLE).delete().eq("user_id", user_id).execute()
+    logger.info("Supabase metadata job deleted. user_id=%s", user_id)

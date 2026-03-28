@@ -38,7 +38,9 @@ from mcp_service import (  # noqa: E402
     get_valid_tokens,
     handle_auth_callback,
     has_active_connection,
+    submit_metadata_job,
 )
+from supabase_store import fetch_metadata_job, upsert_metadata_job  # noqa: E402
 from redis_cache import (  # noqa: E402
     clear_cached_metadata,
     get_cached_metadata,
@@ -106,6 +108,11 @@ class McpAuthCallbackRequest(BaseModel):
 
 class McpStatusResponse(BaseModel):
     connected: bool
+
+
+class McpMetadataStatusResponse(BaseModel):
+    status: str
+    error_message: Optional[str] = None
 
 
 class SqlQueryRequest(BaseModel):
@@ -239,6 +246,35 @@ def _delete_conversation(user_id: str, session_id: str) -> None:
             detail="Conversation not found.",
         )
     file_path.unlink()
+
+
+def _delete_all_conversations(user_id: str) -> None:
+    safe_user = Path(user_id).name
+    if USE_S3:
+        prefix = f"{safe_user}/"
+        continuation_token = None
+        while True:
+            params = {"Bucket": S3_BUCKET, "Prefix": prefix}
+            if continuation_token:
+                params["ContinuationToken"] = continuation_token
+            response = s3_client.list_objects_v2(**params)
+            contents = response.get("Contents", [])
+            if contents:
+                keys = [{"Key": obj["Key"]} for obj in contents if obj.get("Key")]
+                if keys:
+                    s3_client.delete_objects(Bucket=S3_BUCKET, Delete={"Objects": keys})
+            if not response.get("IsTruncated"):
+                break
+            continuation_token = response.get("NextContinuationToken")
+        return
+
+    user_dir = MEMORY_DIR / safe_user
+    if not user_dir.exists():
+        return
+    for file_path in user_dir.glob("*.json"):
+        file_path.unlink(missing_ok=True)
+    if not any(user_dir.iterdir()):
+        user_dir.rmdir()
 
 
 def _chart_memory_path(user_id: str) -> Path:
@@ -532,6 +568,48 @@ async def mcp_status(
     return McpStatusResponse(connected=connected)
 
 
+@app.get("/mcp/metadata/status", response_model=McpMetadataStatusResponse)
+async def mcp_metadata_status(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> McpMetadataStatusResponse:
+    user_id = _get_user_id(creds)
+    job = fetch_metadata_job(user_id)
+    if not job:
+        return McpMetadataStatusResponse(status="missing")
+    status_value = job.get("status") or "missing"
+    error_message = job.get("error_message")
+    if status_value == "error":
+        error_message = "Metadata extraction failed. Retry to continue."
+    return McpMetadataStatusResponse(status=status_value, error_message=error_message)
+
+
+@app.post("/mcp/metadata/retry", response_class=PlainTextResponse)
+async def mcp_metadata_retry(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> str:
+    user_id = _get_user_id(creds)
+    job = fetch_metadata_job(user_id)
+    if not job or job.get("status") != "error":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Metadata job is not in error state.",
+        )
+    project_ref = job.get("project_ref")
+    if not isinstance(project_ref, str) or not project_ref:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing project_ref for metadata job.",
+        )
+    upsert_metadata_job(
+        user_id=user_id,
+        project_ref=project_ref,
+        status="queued",
+        error_message=None,
+    )
+    await submit_metadata_job(user_id, project_ref)
+    return "Queued"
+
+
 @app.post("/mcp/disconnect", response_class=PlainTextResponse)
 async def mcp_disconnect(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
@@ -540,6 +618,7 @@ async def mcp_disconnect(
     logger.info("MCP disconnect requested. user_id=%s", user_id)
     await disconnect_user(user_id)
     await clear_cached_metadata(user_id)
+    _delete_all_conversations(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)
     _delete_library(user_id)

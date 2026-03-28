@@ -24,13 +24,143 @@ type ChartLibraryProps = {
   onDelete?: (chart: LibraryChart) => void;
 };
 
-const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
+const buildThumbnailSpec = (
+  spec: VisualizationSpec,
+  data: Record<string, unknown>[]
+): VisualizationSpec => {
   const typedSpec = spec as VisualizationSpec;
+  const getEncoding = (value: unknown) => {
+    if (!value || typeof value !== "object") return undefined;
+    const maybe = value as { encoding?: Record<string, unknown> };
+    return maybe.encoding;
+  };
+  const setEncoding = (value: unknown, encoding: Record<string, unknown> | undefined) => {
+    if (!encoding || !value || typeof value !== "object") return value;
+    if ("encoding" in (value as Record<string, unknown>)) {
+      return { ...(value as Record<string, unknown>), encoding };
+    }
+    const withSpec = value as { spec?: Record<string, unknown> };
+    if (withSpec.spec) {
+      return {
+        ...(value as Record<string, unknown>),
+        spec: { ...withSpec.spec, encoding },
+      };
+    }
+    return value;
+  };
+  const baseEncoding = getEncoding(typedSpec) ?? getEncoding((typedSpec as { spec?: unknown }).spec);
+  const getFieldValue = (row: Record<string, unknown>, field: string) => {
+    const parts = field.split(".");
+    let current: unknown = row;
+    for (const part of parts) {
+      if (current && typeof current === "object" && part in current) {
+        current = (current as Record<string, unknown>)[part];
+      } else {
+        return undefined;
+      }
+    }
+    return current;
+  };
+
+  const isCategorical = (encoding: Record<string, unknown> | undefined) => {
+    if (!encoding) return false;
+    const type = String(encoding.type ?? "").toLowerCase();
+    const scale = encoding.scale as Record<string, unknown> | undefined;
+    const scaleType = String(scale?.type ?? "").toLowerCase();
+    return ["nominal", "ordinal", "band", "point"].includes(type) ||
+      ["band", "point", "ordinal"].includes(scaleType);
+  };
+
+  const computeAxisValues = (
+    encoding: Record<string, unknown> | undefined
+  ): unknown[] | null => {
+    if (!encoding) return null;
+    const field = encoding.field;
+    if (typeof field !== "string" || !field) return null;
+
+    const values = data
+      .map((row) => getFieldValue(row, field))
+      .filter((value) => value !== undefined && value !== null);
+    if (values.length === 0) return null;
+
+    const categorical =
+      isCategorical(encoding) ||
+      String(encoding.type ?? "").toLowerCase() === "temporal";
+
+    if (categorical) {
+      const unique: unknown[] = [];
+      const seen = new Set<string>();
+      for (const value of values) {
+        const key = String(value);
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(value);
+        }
+      }
+      if (unique.length <= 4) return unique;
+      return [unique[0], unique[Math.floor((unique.length - 1) / 2)], unique[unique.length - 1]];
+    }
+
+    const numeric = values
+      .map((value) => {
+        if (typeof value === "number") return value;
+        const asNumber = Number(value);
+        return Number.isFinite(asNumber) ? asNumber : null;
+      })
+      .filter((value): value is number => value !== null);
+    if (numeric.length === 0) return null;
+    const min = Math.min(...numeric);
+    const max = Math.max(...numeric);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+    if (min === max) return [min];
+    return [min, min + (max - min) / 2, max];
+  };
+
+  const axisOverride = (
+    axis: Record<string, unknown> | undefined,
+    values: unknown[] | null
+  ) => ({
+    ...(axis ?? {}),
+    labelAngle: 0,
+    labelFontSize: 7,
+    labelLimit: 60,
+    labelOverlap: "greedy",
+    labelFlush: true,
+    tickCount: 3,
+    ...(values ? { values } : {}),
+  });
+  const xValues = computeAxisValues(baseEncoding?.x as Record<string, unknown> | undefined);
+  const yValues = computeAxisValues(baseEncoding?.y as Record<string, unknown> | undefined);
+  const encoding = baseEncoding
+    ? {
+        ...baseEncoding,
+        x: baseEncoding.x
+          ? {
+              ...(baseEncoding.x as Record<string, unknown>),
+              axis: axisOverride(
+                (baseEncoding.x as { axis?: Record<string, unknown> }).axis,
+                xValues
+              ),
+            }
+          : baseEncoding.x,
+        y: baseEncoding.y
+          ? {
+              ...(baseEncoding.y as Record<string, unknown>),
+              axis: axisOverride(
+                (baseEncoding.y as { axis?: Record<string, unknown> }).axis,
+                yValues
+              ),
+            }
+          : baseEncoding.y,
+      }
+    : baseEncoding;
+  const withEncoding = setEncoding(typedSpec, encoding) as VisualizationSpec;
   return {
-    ...typedSpec,
-    width: 220,
-    height: 120,
-    autosize: { type: "fit", contains: "padding" },
+    ...(withEncoding as VisualizationSpec),
+    title: undefined,
+    width: "container",
+    height: "container",
+    autosize: { type: "fit", contains: "padding", resize: true },
     padding: { top: 4, right: 6, bottom: 4, left: 6 },
     config: {
       ...(typedSpec.config ?? {}),
@@ -44,6 +174,7 @@ const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
           {}),
         labelFontSize: 8,
         titleFontSize: 0,
+        tickCount: 3,
         tickSize: 0,
         grid: false,
         labelLimit: 60,
@@ -53,22 +184,24 @@ const buildThumbnailSpec = (spec: VisualizationSpec): VisualizationSpec => {
           {}),
         labelAngle: 0,
         labelFontSize: 7,
+        tickCount: 3,
       },
       axisY: {
         ...((typedSpec.config as { axisY?: Record<string, unknown> } | undefined)?.axisY ??
           {}),
         labelFontSize: 7,
+        tickCount: 3,
       },
       legend: {
         ...((typedSpec.config as { legend?: Record<string, unknown> } | undefined)
           ?.legend ?? {}),
-        labelFontSize: 7,
+        labelFontSize: 0,
         titleFontSize: 0,
-        symbolSize: 40,
-        orient: "bottom",
+        symbolSize: 0,
+        orient: "none",
       },
     } as VisualizationSpec["config"],
-  } as VisualizationSpec;
+  } as unknown as VisualizationSpec;
 };
 
 export default function ChartLibrary({
@@ -117,13 +250,14 @@ export default function ChartLibrary({
                   <X className="h-3 w-3" />
                 </button>
               )}
-              <div className="overflow-hidden">
+              <div className="h-[140px] w-full overflow-hidden">
                 <VegaLite
-                  spec={buildThumbnailSpec(chart.spec)}
+                  spec={buildThumbnailSpec(chart.spec, chart.data)}
                   data={{ values: chart.data }}
                   actions={false}
-                  className="w-full"
-                  style={{ width: "100%" }}
+                  renderer="svg"
+                  className="h-full w-full"
+                  style={{ width: "100%", height: "100%" }}
                 />
               </div>
             </div>

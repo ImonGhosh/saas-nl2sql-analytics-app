@@ -32,6 +32,8 @@ export default function LandingPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [metadataStatus, setMetadataStatus] = useState("missing");
+  const [metadataErrorMessage, setMetadataErrorMessage] = useState("");
   const [libraryCharts, setLibraryCharts] = useState<LibraryChart[]>([]);
   const [selectedChart, setSelectedChart] = useState<LibraryChart | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -74,21 +76,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     const status = searchParams.get("mcp");
-    if (status !== "ready") return;
-
-    setIsModalOpen(true);
-    setConnectStatus("Ready");
-    setConnectError("");
-    setIsConnecting(false);
-
-    const timer = window.setTimeout(() => {
-      closeModal();
-      const url = new URL(window.location.href);
-      url.searchParams.delete("mcp");
-      window.history.replaceState({}, "", url.toString());
-    }, 800);
-
-    return () => window.clearTimeout(timer);
+    if (!status) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mcp");
+    window.history.replaceState({}, "", url.toString());
   }, [searchParams]);
 
   useEffect(() => {
@@ -99,6 +90,8 @@ export default function LandingPage() {
         if (isActive) {
           setIsConnected(false);
           setIsStatusLoading(true);
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
         }
         return;
       }
@@ -107,6 +100,8 @@ export default function LandingPage() {
         if (isActive) {
           setIsConnected(false);
           setIsStatusLoading(false);
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
         }
         return;
       }
@@ -152,9 +147,79 @@ export default function LandingPage() {
 
   useEffect(() => {
     let isActive = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const fetchMetadataStatus = async () => {
+      if (!isLoaded || !isSignedIn || !isConnected) {
+        if (isActive) {
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
+        }
+        return;
+      }
+
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) {
+          if (isActive) {
+            setMetadataStatus("missing");
+            setMetadataErrorMessage("");
+          }
+          return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/mcp/metadata/status`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (isActive) {
+            setMetadataStatus("missing");
+            setMetadataErrorMessage("");
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          status?: string;
+          error_message?: string | null;
+        };
+        if (isActive) {
+          setMetadataStatus(payload.status ?? "missing");
+          setMetadataErrorMessage(payload.error_message ?? "");
+        }
+      } catch {
+        if (isActive) {
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
+        }
+      }
+    };
+
+    void fetchMetadataStatus();
+
+    if (isLoaded && isSignedIn && isConnected) {
+      intervalId = setInterval(fetchMetadataStatus, 4000);
+    }
+
+    return () => {
+      isActive = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [getToken, isConnected, isSignedIn, isLoaded]);
+
+  useEffect(() => {
+    let isActive = true;
 
     const loadLibrary = async () => {
-      if (!isConnected || activeTab !== "analytics" || !isSignedIn) {
+      if (
+        !isConnected ||
+        metadataStatus !== "ready" ||
+        activeTab !== "analytics" ||
+        !isSignedIn
+      ) {
         return;
       }
       try {
@@ -197,13 +262,18 @@ export default function LandingPage() {
     return () => {
       isActive = false;
     };
-  }, [getToken, isConnected, activeTab, isSignedIn]);
+  }, [getToken, isConnected, metadataStatus, activeTab, isSignedIn]);
 
   useEffect(() => {
     let isActive = true;
 
     const loadConversations = async () => {
-      if (!isConnected || activeTab !== "sql" || !isSignedIn) {
+      if (
+        !isConnected ||
+        metadataStatus !== "ready" ||
+        activeTab !== "sql" ||
+        !isSignedIn
+      ) {
         if (isActive) {
           setConversations([]);
           setActiveConversation(null);
@@ -261,7 +331,7 @@ export default function LandingPage() {
     return () => {
       isActive = false;
     };
-  }, [getToken, isConnected, activeTab, isSignedIn]);
+  }, [getToken, isConnected, metadataStatus, activeTab, isSignedIn]);
 
   const handleDisconnect = async () => {
     try {
@@ -278,6 +348,8 @@ export default function LandingPage() {
       });
     } finally {
       setIsConnected(false);
+      setMetadataStatus("missing");
+      setMetadataErrorMessage("");
       setLibraryCharts([]);
       setSelectedChart(null);
       setConversations([]);
@@ -369,7 +441,13 @@ export default function LandingPage() {
   };
 
   const refreshConversations = async () => {
-    if (!isConnected || activeTab !== "sql" || !isSignedIn) return;
+    if (
+      !isConnected ||
+      metadataStatus !== "ready" ||
+      activeTab !== "sql" ||
+      !isSignedIn
+    )
+      return;
     try {
       const token = await getToken({ template: clerkJwtTemplate });
       if (!token) return;
@@ -413,6 +491,38 @@ export default function LandingPage() {
       setConversations(parsed);
     } catch {
       setConversations([]);
+    }
+  };
+
+  const handleMetadataRetry = async () => {
+    if (metadataStatus !== "error") return;
+    setMetadataStatus("queued");
+    setMetadataErrorMessage("");
+
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        setMetadataStatus("error");
+        setMetadataErrorMessage("Authentication required.");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/mcp/metadata/retry`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(text || `Request failed (${response.status})`);
+      }
+    } catch (error) {
+      setMetadataStatus("error");
+      setMetadataErrorMessage(
+        error instanceof Error ? error.message : "Retry failed."
+      );
     }
   };
 
@@ -655,7 +765,34 @@ export default function LandingPage() {
                 </div>
               </div>
             ) : isConnected ? (
-              activeTab === "sql" ? (
+              metadataStatus !== "ready" ? (
+                <div className="mt-10 rounded-2xl border border-dashed border-[#2a3b5a] bg-[#14223a]/85 px-6 py-16 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3 text-[#A7B6CC]">
+                    <span
+                      className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3b5a] border-t-[#7aa2f7]"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm font-semibold">
+                      Extracting metadata...
+                    </p>
+                    {metadataStatus === "error" ? (
+                      <>
+                        <p className="text-sm font-semibold text-red-500">
+                          {metadataErrorMessage ||
+                            "Metadata extraction failed. Retry to continue."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleMetadataRetry}
+                          className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]"
+                        >
+                          Retry
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : activeTab === "sql" ? (
                 <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
                   <div className="w-full max-w-4xl rounded-2xl border border-[#2a3b5a] bg-[#14223a]/90 px-6 py-8 text-left shadow-[0_22px_44px_-28px_rgba(8,12,20,0.65)]">
                     <SqlChatbot

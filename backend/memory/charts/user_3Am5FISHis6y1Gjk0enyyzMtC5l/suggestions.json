@@ -1,9 +1,9 @@
 {
   "suggestions": [
-    "Monthly revenue vs operating expense by branch",
-    "Branch net profit margin trend by region",
-    "New versus approved loans conversion rate by branch",
-    "Deposits growth and customer accounts change monthly",
-    "Loan default rate impact on branch net profit"
+    "Monthly net_profit_usd trend by branch_name for profitability",
+    "Region-level revenue_usd vs operating_expense_usd margin comparison",
+    "Branch-level loan_default_rate_pct impact on new_loans_count trends",
+    "Deposits_usd growth correlated with customer_accounts expansion rate",
+    "Market event sentiment vs Close Price directional impact"
   ]
 }

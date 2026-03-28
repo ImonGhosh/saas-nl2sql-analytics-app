@@ -13,6 +13,7 @@ locals {
     USE_S3                  = "true"
     S3_BUCKET               = aws_s3_bucket.memory.id
     SUPABASE_MCP_REDIRECT_URI = "https://${aws_cloudfront_distribution.main.domain_name}/mcp/callback"
+    MCP_METADATA_QUEUE_URL  = aws_sqs_queue.metadata_jobs.url
     CORS_ALLOW_ORIGINS      = "https://${aws_cloudfront_distribution.main.domain_name}"
   }
 
@@ -22,6 +23,8 @@ locals {
     "POST /mcp/auth/start",
     "POST /mcp/auth/callback",
     "GET /mcp/status",
+    "GET /mcp/metadata/status",
+    "POST /mcp/metadata/retry",
     "POST /mcp/disconnect",
     "POST /sql/query",
     "GET /sql/conversations",
@@ -42,6 +45,15 @@ locals {
   secrets_manager_region_env = var.secrets_manager_region != "" ? {
     SECRETS_MANAGER_REGION = var.secrets_manager_region
   } : {}
+}
+
+data "aws_ecr_image" "lambda" {
+  repository_name = aws_ecr_repository.lambda.name
+  image_tag       = var.lambda_image_tag
+}
+
+locals {
+  lambda_image_uri = "${aws_ecr_repository.lambda.repository_url}@${data.aws_ecr_image.lambda.image_digest}"
 }
 
 # S3 bucket for conversation memory (private)
@@ -88,6 +100,13 @@ resource "aws_s3_bucket_ownership_controls" "frontend" {
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
+}
+
+# SQS queue for metadata extraction jobs
+resource "aws_sqs_queue" "metadata_jobs" {
+  name                      = "${local.name_prefix}-metadata-jobs"
+  visibility_timeout_seconds = var.lambda_timeout + 30
+  tags                      = local.tags
 }
 
 resource "aws_ecr_repository" "lambda" {
@@ -242,6 +261,30 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# IAM role for metadata worker Lambda
+resource "aws_iam_role" "worker_role" {
+  name = "${local.name_prefix}-worker-role"
+  tags = local.tags
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "worker_basic" {
+  role       = aws_iam_role.worker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 # Create a policy document to use the memory S3 bucket and AWS Secrets
 data "aws_iam_policy_document" "lambda_inline" {
   statement {
@@ -255,6 +298,11 @@ data "aws_iam_policy_document" "lambda_inline" {
       aws_s3_bucket.memory.arn,
       "${aws_s3_bucket.memory.arn}/*"
     ]
+  }
+
+  statement {
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.metadata_jobs.arn]
   }
 
   dynamic "statement" {
@@ -273,12 +321,51 @@ resource "aws_iam_role_policy" "lambda_inline" {
   policy = data.aws_iam_policy_document.lambda_inline.json
 }
 
+# Worker policy for S3, Secrets Manager, and SQS receive
+data "aws_iam_policy_document" "worker_inline" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      aws_s3_bucket.memory.arn,
+      "${aws_s3_bucket.memory.arn}/*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes"
+    ]
+    resources = [aws_sqs_queue.metadata_jobs.arn]
+  }
+
+  dynamic "statement" {
+    for_each = var.secrets_manager_arn != "" ? [var.secrets_manager_arn] : []
+    content {
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [statement.value]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "worker_inline" {
+  name   = "${local.name_prefix}-worker-inline"
+  role   = aws_iam_role.worker_role.id
+  policy = data.aws_iam_policy_document.worker_inline.json
+}
+
 # Main Lambda function
 resource "aws_lambda_function" "api" {
   function_name    = "${local.name_prefix}-api"
   role             = aws_iam_role.lambda_role.arn # Add the lambda role to this Lambda function
   package_type     = "Image"
-  image_uri        = "${aws_ecr_repository.lambda.repository_url}:${var.lambda_image_tag}"
+  image_uri        = local.lambda_image_uri
   timeout          = var.lambda_timeout
   memory_size      = var.lambda_memory_size
   tags             = local.tags
@@ -293,6 +380,37 @@ resource "aws_lambda_function" "api" {
   }
 }
 
+# Worker Lambda function (SQS-triggered)
+resource "aws_lambda_function" "worker" {
+  function_name    = "${local.name_prefix}-metadata-worker"
+  role             = aws_iam_role.worker_role.arn
+  package_type     = "Image"
+  image_uri        = local.lambda_image_uri
+  timeout          = var.lambda_timeout
+  memory_size      = var.lambda_memory_size
+  tags             = local.tags
+
+  image_config {
+    command = ["worker_handler.handler"]
+  }
+
+  environment {
+    variables = merge(
+      local.lambda_env_base,
+      local.secrets_manager_env,
+      local.secrets_manager_region_env,
+      var.lambda_env
+    )
+  }
+}
+
+# SQS -> worker Lambda event source mapping
+resource "aws_lambda_event_source_mapping" "metadata_jobs" {
+  event_source_arn = aws_sqs_queue.metadata_jobs.arn
+  function_name    = aws_lambda_function.worker.arn
+  batch_size       = 1
+  enabled          = true
+}
 # API Gateway HTTP API
 resource "aws_apigatewayv2_api" "main" {
   name          = "${local.name_prefix}-api-gateway"

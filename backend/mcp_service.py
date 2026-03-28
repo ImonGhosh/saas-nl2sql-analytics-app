@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 from uuid import uuid4
 
+import boto3
 import httpx
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
@@ -24,6 +25,7 @@ from redis_cache import (
     delete_cached_auth_state,
     get_cached_auth_state,
     get_cached_tokens,
+    set_cached_metadata,
     set_cached_auth_state,
     set_cached_tokens,
 )
@@ -34,8 +36,10 @@ from supabase_store import (
     delete_tokens,
     fetch_auth_state,
     fetch_metadata,
+    fetch_metadata_job,
     fetch_tokens,
     insert_auth_state,
+    upsert_metadata_job,
     upsert_metadata,
     upsert_tokens,
 )
@@ -64,8 +68,12 @@ SUPABASE_OAUTH_CLIENT_AUTH_METHOD = os.getenv(
 OAUTH_CLIENT_ID = os.getenv("SUPABASE_OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
 MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
+MCP_METADATA_QUEUE_URL = os.getenv("MCP_METADATA_QUEUE_URL", "")
+MCP_METADATA_MODE = os.getenv("MCP_METADATA_MODE", "sqs").lower()
 
 logger = logging.getLogger("mcp")
+
+_sqs_client = boto3.client("sqs")
 
 if USE_S3:
     try:
@@ -284,6 +292,11 @@ def _has_metadata(user_id: str) -> bool:
     return fetch_metadata(user_id) is not None
 
 
+def _is_transient_event_loop_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "event loop is closed" in message or "event loop closed" in message
+
+
 def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
     return fetch_metadata(user_id)
 
@@ -382,6 +395,76 @@ def _code_challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
 
 
+def enqueue_metadata_job(user_id: str, project_ref: str) -> None:
+    if not MCP_METADATA_QUEUE_URL:
+        raise RuntimeError("Missing MCP_METADATA_QUEUE_URL.")
+    payload = json.dumps({"user_id": user_id, "project_ref": project_ref})
+    _sqs_client.send_message(QueueUrl=MCP_METADATA_QUEUE_URL, MessageBody=payload)
+    logger.info("MCP metadata job enqueued. user_id=%s project_ref=%s", user_id, project_ref)
+
+
+async def process_metadata_job(user_id: str, project_ref: str) -> None:
+    job = fetch_metadata_job(user_id)
+    if job and job.get("status") == "ready":
+        logger.info("Metadata job already ready. user_id=%s", user_id)
+        return
+
+    upsert_metadata_job(user_id, project_ref, status="running", error_message=None)
+    try:
+        metadata = await extract_metadata(user_id)
+        _store_metadata(user_id, project_ref, metadata)
+        await set_cached_metadata(user_id, "metadata", metadata)
+        logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
+
+        trace_id = uuid4().hex
+        trace_metadata = {
+            "user_id": user_id,
+            "session_id": None,
+            "project_ref": project_ref,
+            "endpoint": "metadata job",
+        }
+        suggestions = await run_chart_suggestions_agent(
+            metadata=metadata,
+            trace_id=trace_id,
+            trace_name="metadata job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+        _save_suggestions(user_id, suggestions)
+        logger.info("Chart suggestions generated and saved. user_id=%s", user_id)
+
+        upsert_metadata_job(user_id, project_ref, status="ready", error_message=None)
+    except Exception as exc:
+        if _is_transient_event_loop_error(exc):
+            upsert_metadata_job(
+                user_id,
+                project_ref,
+                status="queued",
+                error_message=None,
+            )
+            logger.warning(
+                "Transient event-loop error; job re-queued. user_id=%s", user_id
+            )
+            raise
+
+        upsert_metadata_job(
+            user_id,
+            project_ref,
+            status="error",
+            error_message="Metadata extraction failed. Retry to continue.",
+        )
+        logger.exception("Metadata job failed. user_id=%s", user_id)
+        raise
+
+
+async def submit_metadata_job(user_id: str, project_ref: str) -> None:
+    if MCP_METADATA_MODE == "local":
+        await process_metadata_job(user_id, project_ref)
+        return
+    enqueue_metadata_job(user_id, project_ref)
+
+
 async def create_authorization_url(user_id: str, project_ref: str) -> str:
     project_ref = project_ref.strip()
     if not project_ref:
@@ -450,29 +533,13 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     await _delete_auth_state(state, user_id)
     logger.info("MCP tokens stored. user_id=%s project_ref=%s", user_id, auth_state["project_ref"])
 
-    metadata = await extract_metadata(user_id)
-    _store_metadata(user_id, auth_state["project_ref"], metadata)
-    logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
-    try:
-        trace_id = uuid4().hex
-        trace_metadata = {
-            "user_id": user_id,
-            "session_id": None,
-            "project_ref": auth_state["project_ref"],
-            "endpoint": "MCP auth callback",
-        }
-        suggestions = await run_chart_suggestions_agent(
-            metadata=metadata,
-            trace_id=trace_id,
-            trace_name="POST mcp/auth/callback",
-            trace_user_id=user_id,
-            trace_session_id=None,
-            trace_metadata=trace_metadata,
-        )
-        _save_suggestions(user_id, suggestions)
-        logger.info("Chart suggestions generated and saved. user_id=%s", user_id)
-    except Exception:
-        logger.exception("Chart suggestions generation failed")
+    upsert_metadata_job(
+        user_id=user_id,
+        project_ref=auth_state["project_ref"],
+        status="queued",
+        error_message=None,
+    )
+    await submit_metadata_job(user_id, auth_state["project_ref"])
 
 
 async def _refresh_access_token(refresh_token: str) -> Dict[str, Any]:

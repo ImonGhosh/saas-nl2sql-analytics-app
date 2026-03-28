@@ -14,29 +14,11 @@ export default function McpCallbackClientPage() {
   const router = useRouter();
   const [status, setStatus] = useState("Authorizing...");
   const [error, setError] = useState("");
-  const [debugInfo, setDebugInfo] = useState<Record<string, string>>({});
-
-  const updateDebug = (info: Record<string, string>) => {
-    setDebugInfo((prev) => ({ ...prev, ...info }));
-    if (typeof window !== "undefined") {
-      // eslint-disable-next-line no-console
-      console.info("[mcp-callback]", info);
-    }
-  };
 
   useEffect(() => {
     if (!isLoaded) return;
 
     const finalizeAuth = async () => {
-      updateDebug({
-        pathname:
-          typeof window !== "undefined" ? window.location.pathname : "unknown",
-        search:
-          typeof window !== "undefined" ? window.location.search : "unknown",
-        hash: typeof window !== "undefined" ? window.location.hash : "unknown",
-        backendUrl: BACKEND_URL,
-      });
-
       const queryCode = searchParams.get("code");
       const queryState = searchParams.get("state");
       const queryError = searchParams.get("error");
@@ -48,10 +30,6 @@ export default function McpCallbackClientPage() {
             ? `${queryError}: ${queryErrorDesc}`
             : `OAuth error: ${queryError}`
         );
-        updateDebug({
-          oauthError: queryError,
-          oauthErrorDescription: queryErrorDesc || "none",
-        });
         return;
       }
 
@@ -74,13 +52,6 @@ export default function McpCallbackClientPage() {
         state = state ?? hashParams.get("state");
       }
 
-      updateDebug({
-        queryCode: queryCode || "missing",
-        queryState: queryState || "missing",
-        resolvedCode: code || "missing",
-        resolvedState: state || "missing",
-      });
-
       if (!code || !state) {
         setError(
           "Missing OAuth code or state. Verify the redirect URI matches exactly."
@@ -89,7 +60,6 @@ export default function McpCallbackClientPage() {
       }
 
       const token = await getToken({ template: clerkJwtTemplate });
-      updateDebug({ clerkToken: token ? "present" : "missing" });
       if (!token) {
         setError("Authentication required.");
         return;
@@ -97,9 +67,7 @@ export default function McpCallbackClientPage() {
 
       try {
         setStatus("Authorized");
-        setStatus("Extracting metadata...");
 
-        updateDebug({ callbackRequest: "POST /mcp/auth/callback" });
         const response = await fetch(`${BACKEND_URL}/mcp/auth/callback`, {
           method: "POST",
           headers: {
@@ -110,25 +78,13 @@ export default function McpCallbackClientPage() {
         });
 
         const text = await response.text();
-        updateDebug({
-          callbackStatus: String(response.status),
-          callbackOk: String(response.ok),
-          callbackResponse: text || "empty",
-        });
         if (!response.ok) {
           throw new Error(text || `Request failed (${response.status})`);
         }
 
-        setStatus("Ready");
-        window.setTimeout(() => {
-          router.replace("/?mcp=ready");
-        }, 800);
+        router.replace("/");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Authorization failed.");
-        updateDebug({
-          callbackError:
-            err instanceof Error ? err.message : "Authorization failed.",
-        });
       }
     };
 
@@ -147,11 +103,6 @@ export default function McpCallbackClientPage() {
           ) : (
             <p className="mt-4 text-sm font-semibold text-slate-700">{status}</p>
           )}
-          {Object.keys(debugInfo).length > 0 ? (
-            <pre className="mt-6 whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-xs text-slate-700">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          ) : null}
         </div>
       </section>
     </main>
