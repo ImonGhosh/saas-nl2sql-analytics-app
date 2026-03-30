@@ -33,6 +33,7 @@ locals {
     "DELETE /sql/conversations/{session_id}",
     "POST /charts/query",
     "POST /charts/query/async",
+    "POST /charts/query/abort",
     "GET /charts/query/status",
     "GET /charts/last",
     "GET /charts/suggestions",

@@ -56,6 +56,7 @@ export default function AnalyticsAgent({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const chartTimeoutMs = 6 * 60 * 1000;
 
   const buildChartPayload = (payload: {
     summary?: string;
@@ -200,6 +201,34 @@ export default function AnalyticsAgent({
       isActive = false;
       if (intervalId) clearInterval(intervalId);
     };
+  }, [chartJobId, chartJobStatus, getToken]);
+
+  useEffect(() => {
+    if (!chartJobId || !["queued", "running"].includes(chartJobStatus)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      if (!chartJobId || !["queued", "running"].includes(chartJobStatus)) return;
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (token) {
+          await fetch(`${BACKEND_URL}/charts/query/abort`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ job_id: chartJobId }),
+          });
+        }
+      } finally {
+        setChartJobStatus("error");
+        setChartJobError("Chart generation took too long. Retry to continue.");
+      }
+    }, chartTimeoutMs);
+
+    return () => window.clearTimeout(timeoutId);
   }, [chartJobId, chartJobStatus, getToken]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {

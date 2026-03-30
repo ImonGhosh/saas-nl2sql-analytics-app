@@ -25,7 +25,7 @@ variable "region" {
 variable "lambda_timeout" {
   description = "Lambda function timeout in seconds."
   type        = number
-  default     = 120
+  default     = 300
 }
 
 variable "lambda_memory_size" {

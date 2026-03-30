@@ -148,6 +148,10 @@ class ChartJobStatusResponse(BaseModel):
     result: Optional[Dict[str, Any]] = None
 
 
+class ChartJobAbortRequest(BaseModel):
+    job_id: str = Field(min_length=4)
+
+
 class ChartLibraryRequest(BaseModel):
     summary: str
     chart_spec: Dict[str, Any]
@@ -951,6 +955,32 @@ async def charts_query_status(
         error_message=error_message,
         result=result if isinstance(result, dict) else None,
     )
+
+
+@app.post("/charts/query/abort", response_class=PlainTextResponse)
+async def charts_query_abort(
+    payload: ChartJobAbortRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> str:
+    user_id = _get_user_id(creds)
+    job = fetch_chart_job(payload.job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chart job not found.",
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chart job does not belong to this user.",
+        )
+    upsert_chart_job(
+        job_id=payload.job_id,
+        user_id=user_id,
+        status="error",
+        error_message="Chart generation timed out. Retry to continue.",
+    )
+    return "Aborted"
 
 
 @app.get("/charts/last", response_model=ChartResponse)
