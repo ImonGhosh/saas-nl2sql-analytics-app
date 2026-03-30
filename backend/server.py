@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -38,9 +39,16 @@ from mcp_service import (  # noqa: E402
     get_valid_tokens,
     handle_auth_callback,
     has_active_connection,
+    submit_chart_job,
     submit_metadata_job,
 )
-from supabase_store import fetch_metadata_job, upsert_metadata_job  # noqa: E402
+from supabase_store import (  # noqa: E402
+    fetch_active_chart_job_for_question,
+    fetch_chart_job,
+    fetch_metadata_job,
+    upsert_chart_job,
+    upsert_metadata_job,
+)
 from redis_cache import (  # noqa: E402
     clear_cached_metadata,
     get_cached_metadata,
@@ -129,6 +137,16 @@ class SqlQueryResponse(BaseModel):
 class ChartQueryRequest(BaseModel):
     question: str = Field(min_length=1)
 
+class ChartJobSubmitResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+class ChartJobStatusResponse(BaseModel):
+    status: str
+    error_message: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+
 
 class ChartLibraryRequest(BaseModel):
     summary: str
@@ -180,6 +198,17 @@ def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unable to resolve user identity.",
     )
+
+
+def _normalize_question(question: str) -> str:
+    return " ".join(question.strip().split()).lower()
+
+
+def _hash_question(question: str) -> str:
+    normalized = _normalize_question(question)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 
 
 def _memory_key(user_id: str, session_id: str) -> str:
@@ -361,7 +390,7 @@ def _chart_library_path(user_id: str) -> Path:
 
 def _load_library(user_id: str) -> List[ChartLibraryItem]:
     if USE_S3:
-        key = _chart_library_key(us_erid)
+        key = _chart_library_key(user_id)
         try:
             response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
             payload = json.loads(response["Body"].read().decode("utf-8"))
@@ -865,6 +894,63 @@ async def charts_query(
         len(query_result.data),
     )
     return response
+
+
+@app.post("/charts/query/async", response_model=ChartJobSubmitResponse)
+async def charts_query_async(
+    payload: ChartQueryRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartJobSubmitResponse:
+    user_id = _get_user_id(creds)
+    question = payload.question.strip()
+    question_hash = _hash_question(question)
+    existing_job = fetch_active_chart_job_for_question(user_id, question_hash)
+    if existing_job:
+        return ChartJobSubmitResponse(
+            job_id=existing_job.get("id", ""),
+            status=existing_job.get("status") or "queued",
+        )
+    job_id = uuid4().hex
+    upsert_chart_job(
+        job_id=job_id,
+        user_id=user_id,
+        status="queued",
+        question=question,
+        question_hash=question_hash,
+        result_json=None,
+        error_message=None,
+    )
+    await submit_chart_job(job_id, user_id, question)
+    return ChartJobSubmitResponse(job_id=job_id, status="queued")
+
+
+@app.get("/charts/query/status", response_model=ChartJobStatusResponse)
+async def charts_query_status(
+    job_id: str,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartJobStatusResponse:
+    user_id = _get_user_id(creds)
+    job = fetch_chart_job(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chart job not found.",
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chart job does not belong to this user.",
+        )
+    status_value = job.get("status") or "missing"
+    error_message = job.get("error_message")
+    if status_value == "error":
+        error_message = "Chart generation failed. Retry to continue."
+    result = job.get("result_json")
+    return ChartJobStatusResponse(
+        status=status_value,
+        error_message=error_message,
+        result=result if isinstance(result, dict) else None,
+    )
 
 
 @app.get("/charts/last", response_model=ChartResponse)

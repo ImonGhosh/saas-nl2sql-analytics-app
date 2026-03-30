@@ -24,6 +24,7 @@ from redis_cache import (
     clear_cached_tokens,
     delete_cached_auth_state,
     get_cached_auth_state,
+    get_cached_metadata,
     get_cached_tokens,
     set_cached_metadata,
     set_cached_auth_state,
@@ -35,10 +36,12 @@ from supabase_store import (
     delete_metadata,
     delete_tokens,
     fetch_auth_state,
+    fetch_chart_job,
     fetch_metadata,
     fetch_metadata_job,
     fetch_tokens,
     insert_auth_state,
+    upsert_chart_job,
     upsert_metadata_job,
     upsert_metadata,
     upsert_tokens,
@@ -70,6 +73,10 @@ OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
 MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
 MCP_METADATA_QUEUE_URL = os.getenv("MCP_METADATA_QUEUE_URL", "")
 MCP_METADATA_MODE = os.getenv("MCP_METADATA_MODE", "sqs").lower()
+MCP_CHART_QUEUE_URL = os.getenv("MCP_CHART_QUEUE_URL", "")
+MCP_CHART_MODE = os.getenv("MCP_CHART_MODE", "sqs").lower()
+MCP_METADATA_JOB_TIMEOUT_SECONDS = int(os.getenv("MCP_METADATA_JOB_TIMEOUT_SECONDS", "900"))
+MCP_CHART_JOB_TIMEOUT_SECONDS = int(os.getenv("MCP_CHART_JOB_TIMEOUT_SECONDS", "900"))
 
 logger = logging.getLogger("mcp")
 
@@ -297,6 +304,136 @@ def _is_transient_event_loop_error(exc: Exception) -> bool:
     return "event loop is closed" in message or "event loop closed" in message
 
 
+def _is_job_recent(updated_at: Optional[str], timeout_seconds: int) -> bool:
+    parsed = _parse_iso(updated_at)
+    if not parsed:
+        return False
+    age_seconds = (datetime.now(timezone.utc) - parsed).total_seconds()
+    return age_seconds < timeout_seconds
+
+
+async def _get_cached_or_fetch_metadata(user_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        metadata = await get_cached_metadata(user_id, "metadata")
+    except Exception as exc:
+        logger.warning("Redis metadata cache read failed. user_id=%s err=%s", user_id, exc)
+        metadata = None
+    if metadata:
+        return metadata
+    metadata = fetch_metadata(user_id)
+    if metadata:
+        await set_cached_metadata(user_id, "metadata", metadata)
+    return metadata
+
+
+def enqueue_chart_job(job_id: str, user_id: str, question: str) -> None:
+    if not MCP_CHART_QUEUE_URL:
+        raise RuntimeError("Missing MCP_CHART_QUEUE_URL.")
+    payload = json.dumps({"job_id": job_id, "user_id": user_id, "question": question})
+    _sqs_client.send_message(QueueUrl=MCP_CHART_QUEUE_URL, MessageBody=payload)
+    logger.info("Chart job enqueued. job_id=%s user_id=%s", job_id, user_id)
+
+
+def _serialize_chart_result(result: Any) -> Dict[str, Any]:
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
+    if hasattr(result, "dict"):
+        return result.dict()
+    if isinstance(result, dict):
+        return result
+    raise RuntimeError("Chart job result is not serializable.")
+
+
+async def process_chart_job(job_id: str, user_id: str, question: str) -> None:
+    job = fetch_chart_job(job_id)
+    if job:
+        status = job.get("status")
+        if status == "ready":
+            logger.info("Chart job already ready. job_id=%s", job_id)
+            return
+        if status == "running":
+            if _is_job_recent(job.get("updated_at"), MCP_CHART_JOB_TIMEOUT_SECONDS):
+                logger.info("Chart job already running. job_id=%s", job_id)
+                return
+            upsert_chart_job(
+                job_id,
+                user_id,
+                status="error",
+                error_message="Chart generation timed out. Retry to continue.",
+            )
+            logger.warning("Chart job timed out. job_id=%s", job_id)
+            return
+
+    upsert_chart_job(job_id, user_id, status="running", error_message=None, result_json=None)
+    try:
+        metadata = await _get_cached_or_fetch_metadata(user_id)
+        if not metadata:
+            raise RuntimeError("No database metadata found for user.")
+
+        tokens = await get_valid_tokens(user_id)
+
+        from chart_agent import run_chart_query_agent, run_chart_spec_agent  # noqa: E402
+
+        trace_id = uuid4().hex
+        trace_metadata = {
+            "user_id": user_id,
+            "session_id": None,
+            "project_ref": tokens["project_ref"],
+            "endpoint": "chart job",
+        }
+        query_result = await run_chart_query_agent(
+            question=question,
+            metadata=metadata,
+            access_token=tokens["access_token"],
+            project_ref=tokens["project_ref"],
+            trace_id=trace_id,
+            trace_name="chart job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+        response = await run_chart_spec_agent(
+            question=question,
+            sql=query_result.sql,
+            data=query_result.data,
+            columns=query_result.columns,
+            trace_id=trace_id,
+            trace_name="chart job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+
+        result_payload = _serialize_chart_result(response)
+        upsert_chart_job(
+            job_id,
+            user_id,
+            status="ready",
+            result_json=result_payload,
+            error_message=None,
+        )
+    except Exception as exc:
+        if _is_transient_event_loop_error(exc):
+            upsert_chart_job(job_id, user_id, status="queued", error_message=None)
+            logger.warning("Transient event-loop error; chart job re-queued. job_id=%s", job_id)
+            raise
+        upsert_chart_job(
+            job_id,
+            user_id,
+            status="error",
+            error_message="Chart generation failed. Retry to continue.",
+        )
+        logger.exception("Chart job failed. job_id=%s", job_id)
+        raise
+
+
+async def submit_chart_job(job_id: str, user_id: str, question: str) -> None:
+    if MCP_CHART_MODE == "local":
+        await process_chart_job(job_id, user_id, question)
+        return
+    enqueue_chart_job(job_id, user_id, question)
+
+
 def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
     return fetch_metadata(user_id)
 
@@ -405,15 +542,34 @@ def enqueue_metadata_job(user_id: str, project_ref: str) -> None:
 
 async def process_metadata_job(user_id: str, project_ref: str) -> None:
     job = fetch_metadata_job(user_id)
-    if job and job.get("status") == "ready":
-        logger.info("Metadata job already ready. user_id=%s", user_id)
-        return
+    if job:
+        status = job.get("status")
+        if status == "ready":
+            logger.info("Metadata job already ready. user_id=%s", user_id)
+            return
+        if status == "running":
+            if _is_job_recent(job.get("updated_at"), MCP_METADATA_JOB_TIMEOUT_SECONDS):
+                logger.info("Metadata job already running. user_id=%s", user_id)
+                return
+            upsert_metadata_job(
+                user_id,
+                project_ref,
+                status="error",
+                error_message="Metadata extraction timed out. Retry to continue.",
+            )
+            logger.warning("Metadata job timed out. user_id=%s", user_id)
+            return
 
     upsert_metadata_job(user_id, project_ref, status="running", error_message=None)
     try:
-        metadata = await extract_metadata(user_id)
-        _store_metadata(user_id, project_ref, metadata)
-        await set_cached_metadata(user_id, "metadata", metadata)
+        metadata = await _get_cached_or_fetch_metadata(user_id)
+        if metadata:
+            _store_metadata(user_id, project_ref, metadata)
+            await set_cached_metadata(user_id, "metadata", metadata)
+        else:
+            metadata = await extract_metadata(user_id)
+            _store_metadata(user_id, project_ref, metadata)
+            await set_cached_metadata(user_id, "metadata", metadata)
         logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
 
         trace_id = uuid4().hex

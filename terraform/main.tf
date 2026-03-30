@@ -14,6 +14,7 @@ locals {
     S3_BUCKET               = aws_s3_bucket.memory.id
     SUPABASE_MCP_REDIRECT_URI = "https://${aws_cloudfront_distribution.main.domain_name}/mcp/callback"
     MCP_METADATA_QUEUE_URL  = aws_sqs_queue.metadata_jobs.url
+    MCP_CHART_QUEUE_URL     = aws_sqs_queue.chart_jobs.url
     CORS_ALLOW_ORIGINS      = "https://${aws_cloudfront_distribution.main.domain_name}"
   }
 
@@ -31,6 +32,8 @@ locals {
     "GET /sql/conversations/{session_id}",
     "DELETE /sql/conversations/{session_id}",
     "POST /charts/query",
+    "POST /charts/query/async",
+    "GET /charts/query/status",
     "GET /charts/last",
     "GET /charts/suggestions",
     "GET /charts/library",
@@ -106,7 +109,34 @@ resource "aws_s3_bucket_ownership_controls" "frontend" {
 resource "aws_sqs_queue" "metadata_jobs" {
   name                      = "${local.name_prefix}-metadata-jobs"
   visibility_timeout_seconds = var.lambda_timeout + 30
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.metadata_jobs_dlq.arn
+    maxReceiveCount     = 3
+  })
   tags                      = local.tags
+}
+
+# DLQ for metadata jobs
+resource "aws_sqs_queue" "metadata_jobs_dlq" {
+  name = "${local.name_prefix}-metadata-jobs-dlq"
+  tags = local.tags
+}
+
+# SQS queue for chart generation jobs
+resource "aws_sqs_queue" "chart_jobs" {
+  name                      = "${local.name_prefix}-chart-jobs"
+  visibility_timeout_seconds = var.lambda_timeout + 30
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.chart_jobs_dlq.arn
+    maxReceiveCount     = 3
+  })
+  tags                      = local.tags
+}
+
+# DLQ for chart jobs
+resource "aws_sqs_queue" "chart_jobs_dlq" {
+  name = "${local.name_prefix}-chart-jobs-dlq"
+  tags = local.tags
 }
 
 resource "aws_ecr_repository" "lambda" {
@@ -302,7 +332,10 @@ data "aws_iam_policy_document" "lambda_inline" {
 
   statement {
     actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.metadata_jobs.arn]
+    resources = [
+      aws_sqs_queue.metadata_jobs.arn,
+      aws_sqs_queue.chart_jobs.arn
+    ]
   }
 
   dynamic "statement" {
@@ -342,7 +375,10 @@ data "aws_iam_policy_document" "worker_inline" {
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes"
     ]
-    resources = [aws_sqs_queue.metadata_jobs.arn]
+    resources = [
+      aws_sqs_queue.metadata_jobs.arn,
+      aws_sqs_queue.chart_jobs.arn
+    ]
   }
 
   dynamic "statement" {
@@ -391,7 +427,31 @@ resource "aws_lambda_function" "worker" {
   tags             = local.tags
 
   image_config {
-    command = ["worker_handler.handler"]
+    command = ["metadata_worker_handler.handler"]
+  }
+
+  environment {
+    variables = merge(
+      local.lambda_env_base,
+      local.secrets_manager_env,
+      local.secrets_manager_region_env,
+      var.lambda_env
+    )
+  }
+}
+
+# Chart worker Lambda function (SQS-triggered)
+resource "aws_lambda_function" "chart_worker" {
+  function_name    = "${local.name_prefix}-chart-worker"
+  role             = aws_iam_role.worker_role.arn
+  package_type     = "Image"
+  image_uri        = local.lambda_image_uri
+  timeout          = var.lambda_timeout
+  memory_size      = var.lambda_memory_size
+  tags             = local.tags
+
+  image_config {
+    command = ["chart_worker_handler.handler"]
   }
 
   environment {
@@ -408,6 +468,14 @@ resource "aws_lambda_function" "worker" {
 resource "aws_lambda_event_source_mapping" "metadata_jobs" {
   event_source_arn = aws_sqs_queue.metadata_jobs.arn
   function_name    = aws_lambda_function.worker.arn
+  batch_size       = 1
+  enabled          = true
+}
+
+# SQS -> chart worker Lambda event source mapping
+resource "aws_lambda_event_source_mapping" "chart_jobs" {
+  event_source_arn = aws_sqs_queue.chart_jobs.arn
+  function_name    = aws_lambda_function.chart_worker.arn
   batch_size       = 1
   enabled          = true
 }

@@ -16,6 +16,7 @@ _METADATA_TABLE = "mcp_metadata"
 _TOKENS_TABLE = "mcp_tokens"
 _AUTH_STATES_TABLE = "mcp_auth_states"
 _METADATA_JOBS_TABLE = "mcp_metadata_jobs"
+_CHART_JOBS_TABLE = "mcp_chart_jobs"
 logger = logging.getLogger("mcp")
 
 
@@ -210,3 +211,84 @@ def fetch_metadata_job(user_id: str) -> Optional[Dict[str, Any]]:
 def delete_metadata_job(user_id: str) -> None:
     _supabase.table(_METADATA_JOBS_TABLE).delete().eq("user_id", user_id).execute()
     logger.info("Supabase metadata job deleted. user_id=%s", user_id)
+
+
+def upsert_chart_job(
+    job_id: str,
+    user_id: str,
+    status: str,
+    question: Optional[str] = None,
+    question_hash: Optional[str] = None,
+    result_json: Optional[Dict[str, Any]] = None,
+    error_message: Optional[str] = None,
+) -> None:
+    payload: Dict[str, Any] = {
+        "id": job_id,
+        "user_id": user_id,
+        "status": status,
+        "error_message": error_message,
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    if question is not None:
+        payload["question"] = question
+    if question_hash is not None:
+        payload["question_hash"] = question_hash
+    if result_json is not None:
+        payload["result_json"] = result_json
+    _supabase.table(_CHART_JOBS_TABLE).upsert(payload).execute()
+    logger.info("Supabase chart job upserted. job_id=%s status=%s", job_id, status)
+
+
+def fetch_chart_job(job_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        response = (
+            _supabase.table(_CHART_JOBS_TABLE)
+            .select(
+                "id, user_id, status, question, question_hash, result_json, error_message, created_at, updated_at"
+            )
+            .eq("id", job_id)
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        logger.exception("Supabase chart job fetch failed. job_id=%s", job_id)
+        return None
+    if response is None:
+        logger.debug("Supabase chart job missing. job_id=%s", job_id)
+        return None
+    data = getattr(response, "data", None)
+    if not isinstance(data, dict):
+        logger.debug("Supabase chart job missing. job_id=%s", job_id)
+        return None
+    logger.info("Supabase chart job fetched. job_id=%s", job_id)
+    return data
+
+
+def fetch_active_chart_job_for_question(
+    user_id: str, question_hash: str
+) -> Optional[Dict[str, Any]]:
+    try:
+        response = (
+            _supabase.table(_CHART_JOBS_TABLE)
+            .select("id, user_id, status, question, question_hash, updated_at")
+            .eq("user_id", user_id)
+            .eq("question_hash", question_hash)
+            .in_("status", ["queued", "running"])
+            .order("updated_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "Supabase chart job lookup failed. user_id=%s question_hash=%s",
+            user_id,
+            question_hash,
+        )
+        return None
+    if response is None:
+        return None
+    data = getattr(response, "data", None)
+    if not isinstance(data, dict):
+        return None
+    return data
