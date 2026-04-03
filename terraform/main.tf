@@ -496,7 +496,7 @@ resource "aws_apigatewayv2_api" "main" {
       "x-amz-security-token"
     ]
     allow_methods     = ["GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"]
-    allow_origins     = ["https://d2siix1ttcnysh.cloudfront.net"]
+    allow_origins     = ["https://${aws_cloudfront_distribution.main.domain_name}"]
     max_age           = 600
   }
 }
