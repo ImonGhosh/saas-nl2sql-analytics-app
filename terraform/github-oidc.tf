@@ -132,7 +132,18 @@ resource "aws_iam_role_policy" "github_additional" {
           "iam:TagRole",
           "iam:UntagRole",
           "iam:ListInstanceProfilesForRole",
-          "sts:GetCallerIdentity"
+          "sts:GetCallerIdentity",
+          "sqs:CreateQueue",
+          "sqs:DeleteQueue",
+          "sqs:GetQueueAttributes",
+          "sqs:SetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ListQueues",
+          "sqs:ListQueueTags",
+          "sqs:TagQueue",
+          "sqs:UntagQueue",
+          "sqs:PurgeQueue",
+          "sqs:ListDeadLetterSourceQueues"
         ]
         Resource = "*"
       }
