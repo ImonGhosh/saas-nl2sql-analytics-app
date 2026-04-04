@@ -4,6 +4,8 @@ A production-oriented natural-language analytics platform that lets users connec
 
 The platform is designed for both technical and non-technical users. It prioritizes transparency by always surfacing the exact SQL used to produce answers and visualizations.
 
+Access LIVE App here - https://d3bgm1sor0pojd.cloudfront.net/
+
 ## Core Capabilities
 
 - Natural-language-to-SQL chat for exploratory analysis
