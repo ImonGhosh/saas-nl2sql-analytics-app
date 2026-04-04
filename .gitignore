@@ -55,3 +55,28 @@ next-env.d.ts
 **/*.py[cod]
 **/.mypy_cache
 **/.ruff_cache
+
+# terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/crash.log
+**/crash.*.log
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+**/.terraform.lock.hcl
+.terraformrc
+terraform.rc
+
+# aws lambda
+**/.aws-sam/
+**/.serverless/
+**/lambda-package/
+**/lambda_package/
+**/lambda-build/
+**/lambda_build/
+**/lambda-package*.zip
+**/lambda_package*.zip
+**/lambda-*.zip

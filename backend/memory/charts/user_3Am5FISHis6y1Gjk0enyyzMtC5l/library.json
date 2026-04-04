@@ -1,219 +1,6 @@
 {
   "charts": [
     {
-      "summary": "Query result contains a single region (Germany) with a net profit margin of ~33.68% (0.3368414574). Germany\u2019s total net profit is $8,209,500, total revenue $24,372,000, total operating expense $16,162,500, average operating expense per branch $808,125, and 5 branches. The chart is a scatter plot of Net Profit Margin (y) vs Avg Operating Expense (x) with point size representing total net profit and color by region; tooltips show the numeric details.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Net Profit Margin vs Avg Operating Expense by Region",
-        "data": {
-          "name": "values"
-        },
-        "mark": {
-          "type": "point",
-          "filled": true,
-          "opacity": 0.85
-        },
-        "encoding": {
-          "x": {
-            "field": "avg_operating_expense_usd",
-            "type": "quantitative",
-            "title": "Avg Operating Expense (USD)",
-            "axis": {
-              "labelExpr": "datum.label"
-            }
-          },
-          "y": {
-            "field": "net_profit_margin",
-            "type": "quantitative",
-            "title": "Net Profit Margin",
-            "axis": {
-              "format": ".0%",
-              "titlePadding": 10
-            }
-          },
-          "color": {
-            "field": "region",
-            "type": "nominal",
-            "title": "Region"
-          },
-          "size": {
-            "field": "total_net_profit_usd",
-            "type": "quantitative",
-            "title": "Total Net Profit (USD)"
-          },
-          "tooltip": [
-            {
-              "field": "region",
-              "type": "nominal",
-              "title": "Region"
-            },
-            {
-              "field": "total_net_profit_usd",
-              "type": "quantitative",
-              "title": "Total Net Profit (USD)"
-            },
-            {
-              "field": "total_revenue_usd",
-              "type": "quantitative",
-              "title": "Total Revenue (USD)"
-            },
-            {
-              "field": "net_profit_margin",
-              "type": "quantitative",
-              "title": "Net Profit Margin"
-            },
-            {
-              "field": "total_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Total Operating Expense (USD)"
-            },
-            {
-              "field": "avg_operating_expense_usd",
-              "type": "quantitative",
-              "title": "Avg Operating Expense (USD)"
-            },
-            {
-              "field": "branch_count",
-              "type": "quantitative",
-              "title": "Branch Count"
-            }
-          ]
-        }
-      },
-      "data": [
-        {
-          "region": "Germany",
-          "total_net_profit_usd": "8209500.00",
-          "total_revenue_usd": "24372000.00",
-          "net_profit_margin": "0.33684145741014278680",
-          "total_operating_expense_usd": "16162500.00",
-          "avg_operating_expense_usd": "808125.000000000000",
-          "branch_count": 5
-        }
-      ],
-      "sql": "SELECT\n  region,\n  SUM(net_profit_usd) AS total_net_profit_usd,\n  SUM(revenue_usd) AS total_revenue_usd,\n  CASE WHEN SUM(revenue_usd) = 0 THEN NULL ELSE SUM(net_profit_usd) / NULLIF(SUM(revenue_usd),0) END AS net_profit_margin,\n  SUM(operating_expense_usd) AS total_operating_expense_usd,\n  AVG(operating_expense_usd) AS avg_operating_expense_usd,\n  COUNT(DISTINCT branch_name) AS branch_count\nFROM public.branch_finance_kpis\nWHERE region IS NOT NULL\nGROUP BY region\nORDER BY net_profit_margin DESC NULLS LAST\nLIMIT 200;",
-      "saved_at": "2026-03-21T01:19:33.473351"
-    },
-    {
-      "summary": "From Jan to Apr 2025 the average loan default rate steadily decreased from 2.21% to 2.008% while approved loans rose from 1,431 to 1,533 and total net profit increased\u2014suggesting improving portfolio performance as volume grew. The chart shows monthly approved loans as bars (left axis) with the average default rate as a line (right axis) so you can track volume vs credit quality.",
-      "chart_spec": {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "title": "Monthly Approved Loans and Avg Loan Default Rate (%)",
-        "data": {
-          "name": "values"
-        },
-        "height": 300,
-        "layer": [
-          {
-            "mark": {
-              "type": "bar"
-            },
-            "encoding": {
-              "x": {
-                "field": "report_month",
-                "type": "temporal",
-                "title": "Report Month"
-              },
-              "y": {
-                "field": "total_approved_loans_count",
-                "type": "quantitative",
-                "title": "Approved Loans Count"
-              },
-              "color": {
-                "value": "#5470C6"
-              },
-              "tooltip": [
-                {
-                  "field": "report_month",
-                  "type": "temporal",
-                  "title": "Report Month"
-                },
-                {
-                  "field": "total_approved_loans_count",
-                  "type": "quantitative",
-                  "title": "Approved Loans"
-                },
-                {
-                  "field": "total_net_profit_usd",
-                  "type": "quantitative",
-                  "title": "Total Net Profit (USD)"
-                }
-              ]
-            }
-          },
-          {
-            "mark": {
-              "type": "line",
-              "point": true,
-              "strokeWidth": 2
-            },
-            "encoding": {
-              "x": {
-                "field": "report_month",
-                "type": "temporal"
-              },
-              "y": {
-                "field": "avg_loan_default_rate_pct",
-                "type": "quantitative",
-                "title": "Avg Loan Default Rate (%)",
-                "axis": {
-                  "orient": "right"
-                }
-              },
-              "color": {
-                "value": "#EE6666"
-              },
-              "tooltip": [
-                {
-                  "field": "report_month",
-                  "type": "temporal",
-                  "title": "Report Month"
-                },
-                {
-                  "field": "avg_loan_default_rate_pct",
-                  "type": "quantitative",
-                  "title": "Avg Loan Default Rate (%)"
-                }
-              ]
-            }
-          }
-        ],
-        "resolve": {
-          "scale": {
-            "y": "independent"
-          }
-        }
-      },
-      "data": [
-        {
-          "report_month": "2025-01-01",
-          "avg_loan_default_rate_pct": "2.2100",
-          "total_approved_loans_count": 1431,
-          "total_net_profit_usd": "1955000.00"
-        },
-        {
-          "report_month": "2025-02-01",
-          "avg_loan_default_rate_pct": "2.1380",
-          "total_approved_loans_count": 1466,
-          "total_net_profit_usd": "2021500.00"
-        },
-        {
-          "report_month": "2025-03-01",
-          "avg_loan_default_rate_pct": "2.0720",
-          "total_approved_loans_count": 1496,
-          "total_net_profit_usd": "2080500.00"
-        },
-        {
-          "report_month": "2025-04-01",
-          "avg_loan_default_rate_pct": "2.0080",
-          "total_approved_loans_count": 1533,
-          "total_net_profit_usd": "2152500.00"
-        }
-      ],
-      "sql": "SELECT\n  report_month,\n  ROUND(AVG(loan_default_rate_pct)::numeric, 4) AS avg_loan_default_rate_pct,\n  SUM(approved_loans_count) AS total_approved_loans_count,\n  SUM(net_profit_usd) AS total_net_profit_usd\nFROM public.branch_finance_kpis\nGROUP BY report_month\nORDER BY report_month\nLIMIT 200;",
-      "saved_at": "2026-03-21T01:23:20.145783"
-    },
-    {
       "summary": "This chart shows daily intraday volatility (Daily High\u2013Low as a percent of Open) over time for each stock index (line, colored by index) with trading volume displayed as semi-transparent bars on a separate (independent) Y axis. Tooltips expose date, index, volatility (%), trading volume and raw high-low range so you can inspect individual days.",
       "chart_spec": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
@@ -1732,6 +1519,533 @@
       ],
       "sql": "SELECT\n  NULLIF(trim(\"Date\"), '')::date AS date,\n  \"Stock Index\" AS stock_index,\n  (\"Daily High\" - \"Daily Low\") AS high_low_range,\n  CASE WHEN \"Open Price\" IS NULL OR \"Open Price\" = 0 THEN NULL ELSE ((\"Daily High\" - \"Daily Low\") / \"Open Price\") * 100 END AS volatility_pct,\n  \"Trading Volume\" AS trading_volume\nFROM public.finance_economics_dataset\nWHERE \"Daily High\" IS NOT NULL AND \"Daily Low\" IS NOT NULL AND \"Trading Volume\" IS NOT NULL\nORDER BY date ASC\nLIMIT 200;",
       "saved_at": "2026-03-22T23:52:53.584635"
+    },
+    {
+      "summary": "Line chart showing month-over-month trends (Jan\u2013Apr 2025) of customer accounts and deposits (USD) for each branch. All branches show steady increases in both accounts and deposits; Frankfurt Main has the highest levels (\u224813,460 accounts and $22,350,000 deposits in Apr 2025). The first month for each branch has null MoM percent values because there is no prior month to compare.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Customer Accounts and Deposits (USD) Trends by Branch (Jan\u2013Apr 2025)",
+        "data": {
+          "name": "values"
+        },
+        "width": 800,
+        "height": 420,
+        "layer": [
+          {
+            "mark": {
+              "type": "line",
+              "point": true
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal",
+                "title": "Report Month"
+              },
+              "y": {
+                "field": "customer_accounts",
+                "type": "quantitative",
+                "title": "Customer Accounts"
+              },
+              "color": {
+                "field": "branch_name",
+                "type": "nominal",
+                "title": "Branch"
+              },
+              "tooltip": [
+                {
+                  "field": "branch_name",
+                  "type": "nominal"
+                },
+                {
+                  "field": "report_month",
+                  "type": "temporal"
+                },
+                {
+                  "field": "customer_accounts",
+                  "type": "quantitative",
+                  "title": "Customer Accounts"
+                },
+                {
+                  "field": "customer_accounts_mom_pct",
+                  "type": "quantitative",
+                  "title": "Accounts MoM %"
+                }
+              ]
+            }
+          },
+          {
+            "mark": {
+              "type": "line",
+              "point": true,
+              "strokeDash": [
+                5,
+                5
+              ]
+            },
+            "encoding": {
+              "x": {
+                "field": "report_month",
+                "type": "temporal"
+              },
+              "y": {
+                "field": "deposits_usd",
+                "type": "quantitative",
+                "title": "Deposits (USD)",
+                "axis": {
+                  "orient": "right",
+                  "format": "$,.2f"
+                }
+              },
+              "color": {
+                "field": "branch_name",
+                "type": "nominal"
+              },
+              "tooltip": [
+                {
+                  "field": "branch_name",
+                  "type": "nominal"
+                },
+                {
+                  "field": "report_month",
+                  "type": "temporal"
+                },
+                {
+                  "field": "deposits_usd",
+                  "type": "quantitative",
+                  "title": "Deposits (USD)"
+                },
+                {
+                  "field": "deposits_usd_mom_pct",
+                  "type": "quantitative",
+                  "title": "Deposits MoM %"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
+        }
+      },
+      "data": [
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-01-01",
+          "customer_accounts": 12400,
+          "deposits_usd": "18500000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-02-01",
+          "customer_accounts": 12540,
+          "deposits_usd": "18850000.00",
+          "customer_accounts_mom_pct": "1.13",
+          "deposits_usd_mom_pct": "1.89"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-03-01",
+          "customer_accounts": 12620,
+          "deposits_usd": "19100000.00",
+          "customer_accounts_mom_pct": "0.64",
+          "deposits_usd_mom_pct": "1.33"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "report_month": "2025-04-01",
+          "customer_accounts": 12740,
+          "deposits_usd": "19400000.00",
+          "customer_accounts_mom_pct": "0.95",
+          "deposits_usd_mom_pct": "1.57"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-01-01",
+          "customer_accounts": 9640,
+          "deposits_usd": "14950000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-02-01",
+          "customer_accounts": 9720,
+          "deposits_usd": "15100000.00",
+          "customer_accounts_mom_pct": "0.83",
+          "deposits_usd_mom_pct": "1.00"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-03-01",
+          "customer_accounts": 9790,
+          "deposits_usd": "15240000.00",
+          "customer_accounts_mom_pct": "0.72",
+          "deposits_usd_mom_pct": "0.93"
+        },
+        {
+          "branch_name": "Cologne South",
+          "report_month": "2025-04-01",
+          "customer_accounts": 9860,
+          "deposits_usd": "15410000.00",
+          "customer_accounts_mom_pct": "0.72",
+          "deposits_usd_mom_pct": "1.12"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-01-01",
+          "customer_accounts": 13150,
+          "deposits_usd": "21400000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-02-01",
+          "customer_accounts": 13280,
+          "deposits_usd": "21850000.00",
+          "customer_accounts_mom_pct": "0.99",
+          "deposits_usd_mom_pct": "2.10"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-03-01",
+          "customer_accounts": 13370,
+          "deposits_usd": "22080000.00",
+          "customer_accounts_mom_pct": "0.68",
+          "deposits_usd_mom_pct": "1.05"
+        },
+        {
+          "branch_name": "Frankfurt Main",
+          "report_month": "2025-04-01",
+          "customer_accounts": 13460,
+          "deposits_usd": "22350000.00",
+          "customer_accounts_mom_pct": "0.67",
+          "deposits_usd_mom_pct": "1.22"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-01-01",
+          "customer_accounts": 10890,
+          "deposits_usd": "16820000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-02-01",
+          "customer_accounts": 10980,
+          "deposits_usd": "16970000.00",
+          "customer_accounts_mom_pct": "0.83",
+          "deposits_usd_mom_pct": "0.89"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-03-01",
+          "customer_accounts": 11050,
+          "deposits_usd": "17130000.00",
+          "customer_accounts_mom_pct": "0.64",
+          "deposits_usd_mom_pct": "0.94"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "report_month": "2025-04-01",
+          "customer_accounts": 11140,
+          "deposits_usd": "17360000.00",
+          "customer_accounts_mom_pct": "0.81",
+          "deposits_usd_mom_pct": "1.34"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-01-01",
+          "customer_accounts": 11320,
+          "deposits_usd": "17650000.00",
+          "customer_accounts_mom_pct": null,
+          "deposits_usd_mom_pct": null
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-02-01",
+          "customer_accounts": 11420,
+          "deposits_usd": "17890000.00",
+          "customer_accounts_mom_pct": "0.88",
+          "deposits_usd_mom_pct": "1.36"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-03-01",
+          "customer_accounts": 11510,
+          "deposits_usd": "18020000.00",
+          "customer_accounts_mom_pct": "0.79",
+          "deposits_usd_mom_pct": "0.73"
+        },
+        {
+          "branch_name": "Munich West",
+          "report_month": "2025-04-01",
+          "customer_accounts": 11620,
+          "deposits_usd": "18270000.00",
+          "customer_accounts_mom_pct": "0.96",
+          "deposits_usd_mom_pct": "1.39"
+        }
+      ],
+      "sql": "WITH t AS (\n  SELECT branch_name,\n         report_month,\n         customer_accounts,\n         deposits_usd,\n         LAG(customer_accounts) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_customer_accounts,\n         LAG(deposits_usd) OVER (PARTITION BY branch_name ORDER BY report_month) AS prev_deposits_usd\n  FROM public.branch_finance_kpis\n  WHERE report_month IS NOT NULL\n)\nSELECT branch_name,\n       report_month,\n       customer_accounts,\n       deposits_usd,\n       ROUND((customer_accounts::numeric - prev_customer_accounts::numeric) / NULLIF(prev_customer_accounts::numeric,0) * 100, 2) AS customer_accounts_mom_pct,\n       ROUND((deposits_usd - prev_deposits_usd) / NULLIF(prev_deposits_usd,0) * 100, 2) AS deposits_usd_mom_pct\nFROM t\nORDER BY branch_name, report_month\nLIMIT 200;",
+      "saved_at": "2026-03-23T17:10:51.123043"
+    },
+    {
+      "summary": "Line chart comparing average Close and Open prices by year (2000\u20132008) with a secondary bar chart showing average trading volume (right axis). Close and Open track almost identically; highest avg close price is 3183.66 in 2008 and lowest is 2918.70 in 2006. Trading volume peaks around 517.64M in 2005 and is lowest around 485.38M in 2003.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Average Open / Close Price and Trading Volume by Year (2000\u20132008)",
+        "data": {
+          "name": "values"
+        },
+        "layer": [
+          {
+            "transform": [
+              {
+                "fold": [
+                  "avg_close_price",
+                  "avg_open_price"
+                ],
+                "as": [
+                  "Price Type",
+                  "Price"
+                ]
+              }
+            ],
+            "mark": {
+              "type": "line",
+              "point": true
+            },
+            "encoding": {
+              "x": {
+                "field": "year",
+                "type": "temporal",
+                "timeUnit": "year",
+                "title": "Year"
+              },
+              "y": {
+                "field": "Price",
+                "type": "quantitative",
+                "title": "Average Price"
+              },
+              "color": {
+                "field": "Price Type",
+                "type": "nominal",
+                "title": "Price Type"
+              },
+              "tooltip": [
+                {
+                  "field": "year",
+                  "type": "temporal",
+                  "timeUnit": "year",
+                  "title": "Year"
+                },
+                {
+                  "field": "Price Type",
+                  "type": "nominal",
+                  "title": "Price Type"
+                },
+                {
+                  "field": "Price",
+                  "type": "quantitative",
+                  "title": "Average Price"
+                }
+              ]
+            }
+          },
+          {
+            "mark": {
+              "type": "bar",
+              "opacity": 0.35
+            },
+            "encoding": {
+              "x": {
+                "field": "year",
+                "type": "temporal",
+                "timeUnit": "year",
+                "title": "Year"
+              },
+              "y": {
+                "field": "avg_trading_volume",
+                "type": "quantitative",
+                "title": "Average Trading Volume",
+                "axis": {
+                  "orient": "right",
+                  "title": "Avg Trading Volume"
+                }
+              },
+              "tooltip": [
+                {
+                  "field": "year",
+                  "type": "temporal",
+                  "timeUnit": "year",
+                  "title": "Year"
+                },
+                {
+                  "field": "avg_trading_volume",
+                  "type": "quantitative",
+                  "title": "Average Trading Volume"
+                }
+              ]
+            }
+          }
+        ],
+        "resolve": {
+          "scale": {
+            "y": "independent"
+          }
+        }
+      },
+      "data": [
+        {
+          "year": "2008",
+          "avg_close_price": "3183.66487179487",
+          "avg_open_price": "3183.69525641026",
+          "avg_trading_volume": 512161268
+        },
+        {
+          "year": "2007",
+          "avg_close_price": "2984.43567123287",
+          "avg_open_price": "2987.02515068493",
+          "avg_trading_volume": 509405325
+        },
+        {
+          "year": "2006",
+          "avg_close_price": "2918.70021917808",
+          "avg_open_price": "2920.94364383562",
+          "avg_trading_volume": 500659169
+        },
+        {
+          "year": "2005",
+          "avg_close_price": "2960.95326027397",
+          "avg_open_price": "2961.43528767123",
+          "avg_trading_volume": 517642443
+        },
+        {
+          "year": "2004",
+          "avg_close_price": "2940.43054644809",
+          "avg_open_price": "2940.83330601093",
+          "avg_trading_volume": 504812157
+        },
+        {
+          "year": "2003",
+          "avg_close_price": "2996.80646575343",
+          "avg_open_price": "2997.40079452055",
+          "avg_trading_volume": 485379264
+        },
+        {
+          "year": "2002",
+          "avg_close_price": "3046.60312328767",
+          "avg_open_price": "3045.68583561644",
+          "avg_trading_volume": 502075788
+        },
+        {
+          "year": "2001",
+          "avg_close_price": "2970.59558904109",
+          "avg_open_price": "2971.72791780822",
+          "avg_trading_volume": 505097099
+        },
+        {
+          "year": "2000",
+          "avg_close_price": "2988.30505464481",
+          "avg_open_price": "2988.71803278689",
+          "avg_trading_volume": 500149619
+        }
+      ],
+      "sql": "SELECT left(\"Date\",4) AS year,\n       AVG(\"Close Price\")::numeric AS avg_close_price,\n       AVG(\"Open Price\")::numeric AS avg_open_price,\n       AVG(\"Trading Volume\")::bigint AS avg_trading_volume\nFROM public.finance_economics_dataset\nWHERE \"Close Price\" IS NOT NULL\nGROUP BY year\nORDER BY year DESC\nLIMIT 200;",
+      "saved_at": "2026-03-23T20:51:57.265384"
+    },
+    {
+      "summary": "Conversion rates for new-to-approved loans over the most recent 12 months, by branch. Top branches: Frankfurt Main \u2014 75.04% (1,935 new, 1,452 approved); Berlin Central \u2014 74.36% (1,747 new, 1,299 approved); Munich West \u2014 73.29% (1,625 new, 1,191 approved); Cologne South \u2014 71.98% (1,299 new, 935 approved); Hamburg Port \u2014 70.88% (1,480 new, 1,049 approved). The chart shows conversion rate (%) per branch with totals in the tooltip.",
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "title": "Loan Conversion Rate by Branch (last 12 months)",
+        "data": {
+          "name": "values"
+        },
+        "mark": {
+          "type": "bar"
+        },
+        "encoding": {
+          "x": {
+            "field": "branch_name",
+            "type": "nominal",
+            "title": "Branch",
+            "sort": "-y"
+          },
+          "y": {
+            "field": "conversion_rate_pct",
+            "type": "quantitative",
+            "title": "Conversion Rate (%)"
+          },
+          "color": {
+            "field": "conversion_rate_pct",
+            "type": "quantitative",
+            "legend": null
+          },
+          "tooltip": [
+            {
+              "field": "branch_name",
+              "type": "nominal",
+              "title": "Branch"
+            },
+            {
+              "field": "total_new_loans",
+              "type": "quantitative",
+              "title": "Total New Loans"
+            },
+            {
+              "field": "total_approved_loans",
+              "type": "quantitative",
+              "title": "Total Approved Loans"
+            },
+            {
+              "field": "conversion_rate_pct",
+              "type": "quantitative",
+              "title": "Conversion Rate (%)"
+            }
+          ]
+        }
+      },
+      "data": [
+        {
+          "branch_name": "Frankfurt Main",
+          "total_new_loans": 1935,
+          "total_approved_loans": 1452,
+          "conversion_rate_pct": "75.04"
+        },
+        {
+          "branch_name": "Berlin Central",
+          "total_new_loans": 1747,
+          "total_approved_loans": 1299,
+          "conversion_rate_pct": "74.36"
+        },
+        {
+          "branch_name": "Munich West",
+          "total_new_loans": 1625,
+          "total_approved_loans": 1191,
+          "conversion_rate_pct": "73.29"
+        },
+        {
+          "branch_name": "Cologne South",
+          "total_new_loans": 1299,
+          "total_approved_loans": 935,
+          "conversion_rate_pct": "71.98"
+        },
+        {
+          "branch_name": "Hamburg Port",
+          "total_new_loans": 1480,
+          "total_approved_loans": 1049,
+          "conversion_rate_pct": "70.88"
+        }
+      ],
+      "sql": "WITH max_month AS (\n  SELECT max(report_month) AS max_month FROM public.branch_finance_kpis\n),\nrecent AS (\n  SELECT *\n  FROM public.branch_finance_kpis, max_month\n  WHERE report_month >= (max_month - INTERVAL '11 months')\n)\nSELECT\n  branch_name,\n  SUM(new_loans_count) AS total_new_loans,\n  SUM(approved_loans_count) AS total_approved_loans,\n  CASE WHEN SUM(COALESCE(new_loans_count,0)) = 0 THEN 0\n       ELSE ROUND(100.0 * SUM(COALESCE(approved_loans_count,0)) / SUM(COALESCE(new_loans_count,0)), 2)\n  END AS conversion_rate_pct\nFROM recent\nGROUP BY branch_name\nORDER BY conversion_rate_pct DESC\nLIMIT 200;",
+      "saved_at": "2026-03-25T22:02:06.367570"
     }
   ]
 }

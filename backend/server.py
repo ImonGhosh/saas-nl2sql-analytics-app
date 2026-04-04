@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -14,6 +15,10 @@ from fastapi_clerk_auth import ClerkConfig, ClerkHTTPBearer, HTTPAuthorizationCr
 from pydantic import BaseModel, Field
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
+from secrets_manager import load_secrets  # noqa: E402
+
+load_secrets()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL")
 if not LOG_LEVEL:
@@ -34,7 +39,15 @@ from mcp_service import (  # noqa: E402
     get_valid_tokens,
     handle_auth_callback,
     has_active_connection,
-    init_mcp_db,
+    submit_chart_job,
+    submit_metadata_job,
+)
+from supabase_store import (  # noqa: E402
+    fetch_active_chart_job_for_question,
+    fetch_chart_job,
+    fetch_metadata_job,
+    upsert_chart_job,
+    upsert_metadata_job,
 )
 from redis_cache import (  # noqa: E402
     clear_cached_metadata,
@@ -69,8 +82,8 @@ logger = logging.getLogger("mcp")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -105,6 +118,11 @@ class McpStatusResponse(BaseModel):
     connected: bool
 
 
+class McpMetadataStatusResponse(BaseModel):
+    status: str
+    error_message: Optional[str] = None
+
+
 class SqlQueryRequest(BaseModel):
     question: str = Field(min_length=1)
     session_id: Optional[str] = None
@@ -118,6 +136,20 @@ class SqlQueryResponse(BaseModel):
 
 class ChartQueryRequest(BaseModel):
     question: str = Field(min_length=1)
+
+class ChartJobSubmitResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+class ChartJobStatusResponse(BaseModel):
+    status: str
+    error_message: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+
+
+class ChartJobAbortRequest(BaseModel):
+    job_id: str = Field(min_length=4)
 
 
 class ChartLibraryRequest(BaseModel):
@@ -170,6 +202,17 @@ def _get_user_id(creds: HTTPAuthorizationCredentials) -> str:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unable to resolve user identity.",
     )
+
+
+def _normalize_question(question: str) -> str:
+    return " ".join(question.strip().split()).lower()
+
+
+def _hash_question(question: str) -> str:
+    normalized = _normalize_question(question)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 
 
 def _memory_key(user_id: str, session_id: str) -> str:
@@ -236,6 +279,35 @@ def _delete_conversation(user_id: str, session_id: str) -> None:
             detail="Conversation not found.",
         )
     file_path.unlink()
+
+
+def _delete_all_conversations(user_id: str) -> None:
+    safe_user = Path(user_id).name
+    if USE_S3:
+        prefix = f"{safe_user}/"
+        continuation_token = None
+        while True:
+            params = {"Bucket": S3_BUCKET, "Prefix": prefix}
+            if continuation_token:
+                params["ContinuationToken"] = continuation_token
+            response = s3_client.list_objects_v2(**params)
+            contents = response.get("Contents", [])
+            if contents:
+                keys = [{"Key": obj["Key"]} for obj in contents if obj.get("Key")]
+                if keys:
+                    s3_client.delete_objects(Bucket=S3_BUCKET, Delete={"Objects": keys})
+            if not response.get("IsTruncated"):
+                break
+            continuation_token = response.get("NextContinuationToken")
+        return
+
+    user_dir = MEMORY_DIR / safe_user
+    if not user_dir.exists():
+        return
+    for file_path in user_dir.glob("*.json"):
+        file_path.unlink(missing_ok=True)
+    if not any(user_dir.iterdir()):
+        user_dir.rmdir()
 
 
 def _chart_memory_path(user_id: str) -> Path:
@@ -322,7 +394,7 @@ def _chart_library_path(user_id: str) -> Path:
 
 def _load_library(user_id: str) -> List[ChartLibraryItem]:
     if USE_S3:
-        key = _chart_library_key(us_erid)
+        key = _chart_library_key(user_id)
         try:
             response = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
             payload = json.loads(response["Body"].read().decode("utf-8"))
@@ -455,7 +527,6 @@ def _list_conversations(user_id: str) -> List[ConversationSummary]:
     return summaries
 
 
-init_mcp_db()
 logger.info("Backend startup complete. use_s3=%s", USE_S3)
 
 
@@ -464,6 +535,11 @@ async def api_endpoint(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> str:
     return "API Endpoint success"
+
+
+@app.get("/health", response_class=PlainTextResponse)
+async def health_check() -> str:
+    return "ok"
 
 
 @app.post("/mcp/auth/start", response_model=McpAuthStartResponse)
@@ -520,9 +596,51 @@ async def mcp_status(
     creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
 ) -> McpStatusResponse:
     user_id = _get_user_id(creds)
-    connected = has_active_connection(user_id)
+    connected = await has_active_connection(user_id)
     logger.debug("MCP status checked. user_id=%s connected=%s", user_id, connected)
     return McpStatusResponse(connected=connected)
+
+
+@app.get("/mcp/metadata/status", response_model=McpMetadataStatusResponse)
+async def mcp_metadata_status(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> McpMetadataStatusResponse:
+    user_id = _get_user_id(creds)
+    job = fetch_metadata_job(user_id)
+    if not job:
+        return McpMetadataStatusResponse(status="missing")
+    status_value = job.get("status") or "missing"
+    error_message = job.get("error_message")
+    if status_value == "error":
+        error_message = "Metadata extraction failed. Retry to continue."
+    return McpMetadataStatusResponse(status=status_value, error_message=error_message)
+
+
+@app.post("/mcp/metadata/retry", response_class=PlainTextResponse)
+async def mcp_metadata_retry(
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> str:
+    user_id = _get_user_id(creds)
+    job = fetch_metadata_job(user_id)
+    if not job or job.get("status") != "error":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Metadata job is not in error state.",
+        )
+    project_ref = job.get("project_ref")
+    if not isinstance(project_ref, str) or not project_ref:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing project_ref for metadata job.",
+        )
+    upsert_metadata_job(
+        user_id=user_id,
+        project_ref=project_ref,
+        status="queued",
+        error_message=None,
+    )
+    await submit_metadata_job(user_id, project_ref)
+    return "Queued"
 
 
 @app.post("/mcp/disconnect", response_class=PlainTextResponse)
@@ -531,8 +649,9 @@ async def mcp_disconnect(
 ) -> str:
     user_id = _get_user_id(creds)
     logger.info("MCP disconnect requested. user_id=%s", user_id)
-    disconnect_user(user_id)
+    await disconnect_user(user_id)
     await clear_cached_metadata(user_id)
+    _delete_all_conversations(user_id)
     _delete_chart(user_id)
     _delete_suggestions(user_id)
     _delete_library(user_id)
@@ -549,9 +668,11 @@ async def sql_query(
     session_id = payload.session_id or uuid4().hex
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
+    print(f'SQL Query cached metadata: {metadata}\n')
     if not metadata:
         logger.info("Metadata cache miss for SQL query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
+        print(f'SQL Query Supabase metadata: {metadata}\n')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -706,9 +827,11 @@ async def charts_query(
     user_id = _get_user_id(creds)
     metadata_cache_key = "metadata"
     metadata = await get_cached_metadata(user_id, metadata_cache_key)
+    print(f'Charts Cached metadata: {metadata}\n')
     if not metadata:
         logger.info("Metadata cache miss for chart query. user_id=%s", user_id)
         metadata = get_user_metadata(user_id)
+        print(f'Charts Supabase metadata: {metadata}\n')
         if not metadata:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -775,6 +898,89 @@ async def charts_query(
         len(query_result.data),
     )
     return response
+
+
+@app.post("/charts/query/async", response_model=ChartJobSubmitResponse)
+async def charts_query_async(
+    payload: ChartQueryRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartJobSubmitResponse:
+    user_id = _get_user_id(creds)
+    question = payload.question.strip()
+    question_hash = _hash_question(question)
+    existing_job = fetch_active_chart_job_for_question(user_id, question_hash)
+    if existing_job:
+        return ChartJobSubmitResponse(
+            job_id=existing_job.get("id", ""),
+            status=existing_job.get("status") or "queued",
+        )
+    job_id = uuid4().hex
+    upsert_chart_job(
+        job_id=job_id,
+        user_id=user_id,
+        status="queued",
+        question=question,
+        question_hash=question_hash,
+        result_json=None,
+        error_message=None,
+    )
+    await submit_chart_job(job_id, user_id, question)
+    return ChartJobSubmitResponse(job_id=job_id, status="queued")
+
+
+@app.get("/charts/query/status", response_model=ChartJobStatusResponse)
+async def charts_query_status(
+    job_id: str,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> ChartJobStatusResponse:
+    user_id = _get_user_id(creds)
+    job = fetch_chart_job(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chart job not found.",
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chart job does not belong to this user.",
+        )
+    status_value = job.get("status") or "missing"
+    error_message = job.get("error_message")
+    if status_value == "error":
+        error_message = "Chart generation failed. Retry to continue."
+    result = job.get("result_json")
+    return ChartJobStatusResponse(
+        status=status_value,
+        error_message=error_message,
+        result=result if isinstance(result, dict) else None,
+    )
+
+
+@app.post("/charts/query/abort", response_class=PlainTextResponse)
+async def charts_query_abort(
+    payload: ChartJobAbortRequest,
+    creds: HTTPAuthorizationCredentials = Depends(clerk_guard),
+) -> str:
+    user_id = _get_user_id(creds)
+    job = fetch_chart_job(payload.job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chart job not found.",
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chart job does not belong to this user.",
+        )
+    upsert_chart_job(
+        job_id=payload.job_id,
+        user_id=user_id,
+        status="error",
+        error_message="Chart generation timed out. Retry to continue.",
+    )
+    return "Aborted"
 
 
 @app.get("/charts/last", response_model=ChartResponse)

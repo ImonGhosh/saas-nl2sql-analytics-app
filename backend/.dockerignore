@@ -1,0 +1,10 @@
+.env
+.venv
+__pycache__/
+memory/
+mcp.sqlite3
+lambda-package/
+lambda-deployment.zip
+*.ipynb
+*.pyc
+uv.lock

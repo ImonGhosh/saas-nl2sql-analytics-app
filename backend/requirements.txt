@@ -10,3 +10,6 @@ mcp
 pydantic-ai
 redis
 supabase
+boto3
+botocore
+mangum

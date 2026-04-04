@@ -1,10 +1,11 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/clerk-react";
 import { Bot, Plus, Send, User } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { BACKEND_URL } from "../lib/backend";
 
 type ChatMessage = {
   id: string;
@@ -29,8 +30,6 @@ type SqlChatbotProps = {
   onNewConversation?: () => void;
 };
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
@@ -134,7 +133,7 @@ export default function SqlChatbot({
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(`${backendUrl}/sql/query`, {
+      const response = await fetch(`${BACKEND_URL}/sql/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

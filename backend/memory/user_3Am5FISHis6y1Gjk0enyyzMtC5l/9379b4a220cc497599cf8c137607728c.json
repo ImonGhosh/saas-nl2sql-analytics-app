@@ -9,5 +9,16 @@
     "content": "Unique Stock Index values (from public.finance_economics_dataset and public.market_event_annotations):\n\n- Dow Jones\n- NASDAQ\n- S&P 500\n\nTotal distinct indexes: 3.",
     "sql": "SELECT \"Stock Index\"\nFROM public.finance_economics_dataset\nUNION\nSELECT \"Stock Index\"\nFROM public.market_event_annotations\nORDER BY \"Stock Index\"\nLIMIT 100;",
     "timestamp": "2026-03-23T01:00:08.274962"
+  },
+  {
+    "role": "user",
+    "content": "What are the top 5 interest rates in January ?",
+    "timestamp": "2026-03-23T17:13:07.746007"
+  },
+  {
+    "role": "assistant",
+    "content": "Top 5 interest rates in January (date \u2014 stock index \u2014 Interest Rate %):\n\n1. 2005-01-26 \u2014 Dow Jones \u2014 9.99\n2. 2007-01-09 \u2014 S&P 500 \u2014 9.98\n3. 2006-01-22 \u2014 S&P 500 \u2014 9.94\n4. 2003-01-13 \u2014 S&P 500 \u2014 9.93\n5. 2006-01-25 \u2014 S&P 500 \u2014 9.91\n\nSource: public.finance_economics_dataset (rows where Date is in January).",
+    "sql": "SELECT \"Date\", \"Stock Index\", \"Interest Rate (%)\" \nFROM public.finance_economics_dataset\nWHERE to_char(CAST(\"Date\" AS date), 'MM') = '01'\nORDER BY \"Interest Rate (%)\" DESC\nLIMIT 5;",
+    "timestamp": "2026-03-23T17:13:07.746007"
   }
 ]

@@ -225,6 +225,7 @@ def _get_query_agent() -> Agent:
             "Use ONLY the provided database metadata to infer tables, columns, and relationships. "
             "Always generate a single, read-only SQL query (no INSERT/UPDATE/DELETE/DDL). "
             "Always call the execute_sql tool once to fetch data before responding. "
+            "If the request is ambiguous, make a reasonable assumption and proceed. "
             "Prefer aggregated or summarized results suitable for charting, with sensible LIMITs (max 200 rows). "
             "Return the SQL you executed in the output."
         ),

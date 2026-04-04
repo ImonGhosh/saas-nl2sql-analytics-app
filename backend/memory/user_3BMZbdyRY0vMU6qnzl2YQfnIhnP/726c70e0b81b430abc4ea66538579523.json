@@ -1,0 +1,24 @@
+[
+  {
+    "role": "user",
+    "content": "Which tables are present ? Only provide the names",
+    "timestamp": "2026-03-23T21:33:15.108400"
+  },
+  {
+    "role": "assistant",
+    "content": "sales_line_items\nsales_orders",
+    "sql": null,
+    "timestamp": "2026-03-23T21:33:15.108400"
+  },
+  {
+    "role": "user",
+    "content": "Provide more details about the 2nd table",
+    "timestamp": "2026-03-23T21:33:43.167309"
+  },
+  {
+    "role": "assistant",
+    "content": "Table: public.sales_orders\n\nColumns:\n- order_id: bigint\n- order_number: character varying\n- customer_id: bigint\n- order_date: date\n- order_timestamp: timestamp without time zone\n- region: character varying\n- country: character varying\n- city: character varying\n- sales_channel: character varying\n- customer_segment: character varying\n- sales_rep_id: bigint\n- currency_code: character\n- payment_method: character varying\n- order_status: character varying\n- shipping_days: integer\n- is_returned: boolean\n- gross_order_amount: numeric\n- discount_amount: numeric\n- net_order_amount: numeric\n- created_at: timestamp without time zone\n\nRelationships:\n- Referenced by public.sales_line_items.order_id (foreign key: fk_sales_order).",
+    "sql": null,
+    "timestamp": "2026-03-23T21:33:43.167309"
+  }
+]

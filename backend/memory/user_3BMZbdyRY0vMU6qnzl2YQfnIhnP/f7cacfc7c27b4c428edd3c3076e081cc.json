@@ -1,0 +1,13 @@
+[
+  {
+    "role": "user",
+    "content": "Which unique product categories are present ?",
+    "timestamp": "2026-03-28T13:28:49.690284"
+  },
+  {
+    "role": "assistant",
+    "content": "The unique product categories are:\n- Electronics\n- Furniture\n- Infrastructure\n- Office",
+    "sql": "SELECT DISTINCT product_category\nFROM public.sales_line_items\nORDER BY product_category;",
+    "timestamp": "2026-03-28T13:28:49.690284"
+  }
+]

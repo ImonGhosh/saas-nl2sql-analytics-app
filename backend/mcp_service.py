@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import secrets
-import sqlite3
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,15 +11,40 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 from uuid import uuid4
 
+import boto3
 import httpx
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
 
 from chart_suggestions_agent import ChartSuggestions, run_chart_suggestions_agent
-from supabase_store import delete_metadata, fetch_metadata, upsert_metadata
-
-MCP_DB_PATH = Path(
-    os.getenv("MCP_DB_PATH", str(Path(__file__).resolve().parent / "mcp.sqlite3"))
+from redis_cache import (
+    AUTH_STATE_CACHE_TTL_SECONDS,
+    TOKENS_CACHE_TTL_SECONDS,
+    clear_cached_auth_states,
+    clear_cached_tokens,
+    delete_cached_auth_state,
+    get_cached_auth_state,
+    get_cached_metadata,
+    get_cached_tokens,
+    set_cached_metadata,
+    set_cached_auth_state,
+    set_cached_tokens,
+)
+from supabase_store import (
+    delete_auth_state,
+    delete_auth_states_for_user,
+    delete_metadata,
+    delete_tokens,
+    fetch_auth_state,
+    fetch_chart_job,
+    fetch_metadata,
+    fetch_metadata_job,
+    fetch_tokens,
+    insert_auth_state,
+    upsert_chart_job,
+    upsert_metadata_job,
+    upsert_metadata,
+    upsert_tokens,
 )
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", str(Path(__file__).resolve().parent / "memory")))
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
@@ -47,8 +71,16 @@ SUPABASE_OAUTH_CLIENT_AUTH_METHOD = os.getenv(
 OAUTH_CLIENT_ID = os.getenv("SUPABASE_OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.getenv("SUPABASE_OAUTH_CLIENT_SECRET")
 MCP_SCHEMAS = os.getenv("MCP_SCHEMAS", "")
+MCP_METADATA_QUEUE_URL = os.getenv("MCP_METADATA_QUEUE_URL", "")
+MCP_METADATA_MODE = os.getenv("MCP_METADATA_MODE", "sqs").lower()
+MCP_CHART_QUEUE_URL = os.getenv("MCP_CHART_QUEUE_URL", "")
+MCP_CHART_MODE = os.getenv("MCP_CHART_MODE", "sqs").lower()
+MCP_METADATA_JOB_TIMEOUT_SECONDS = int(os.getenv("MCP_METADATA_JOB_TIMEOUT_SECONDS", "900"))
+MCP_CHART_JOB_TIMEOUT_SECONDS = int(os.getenv("MCP_CHART_JOB_TIMEOUT_SECONDS", "900"))
 
 logger = logging.getLogger("mcp")
+
+_sqs_client = boto3.client("sqs")
 
 if USE_S3:
     try:
@@ -112,156 +144,76 @@ def _oauth_client_auth() -> Tuple[Dict[str, str], Dict[str, str]]:
     return headers, payload
 
 
-def _connect_db() -> sqlite3.Connection:
-    MCP_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(MCP_DB_PATH)
-    conn.execute("pragma journal_mode = wal")
-    return conn
-
-
-def init_mcp_db() -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            create table if not exists oauth_clients (
-                authorization_server text primary key,
-                client_id text not null,
-                client_secret text,
-                token_endpoint_auth_method text,
-                created_at text not null,
-                updated_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists mcp_auth_states (
-                state text primary key,
-                user_id text not null,
-                project_ref text not null,
-                code_verifier text not null,
-                authorization_server text not null,
-                created_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists mcp_tokens (
-                user_id text primary key,
-                project_ref text not null,
-                access_token text not null,
-                refresh_token text,
-                token_type text,
-                scope text,
-                expires_at text,
-                updated_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table if not exists db_metadata (
-                user_id text primary key,
-                metadata_json text not null,
-                created_at text not null,
-                updated_at text not null
-            )
-            """
-        )
-        conn.commit()
-    logger.info("MCP database initialized at %s", MCP_DB_PATH)
-
-
-def _get_oauth_client(authorization_server: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select client_id, client_secret, token_endpoint_auth_method
-            from oauth_clients
-            where authorization_server = ?
-            """,
-            (authorization_server,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "client_id": row[0],
-            "client_secret": row[1],
-            "token_endpoint_auth_method": row[2],
-        }
-
-
-def _store_oauth_client(
-    authorization_server: str, client_id: str, client_secret: Optional[str], auth_method: str
-) -> None:
-    now = _now_iso()
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into oauth_clients (
-                authorization_server, client_id, client_secret, token_endpoint_auth_method,
-                created_at, updated_at
-            )
-            values (?, ?, ?, ?, ?, ?)
-            on conflict(authorization_server) do update set
-                client_id = excluded.client_id,
-                client_secret = excluded.client_secret,
-                token_endpoint_auth_method = excluded.token_endpoint_auth_method,
-                updated_at = excluded.updated_at
-            """,
-            (authorization_server, client_id, client_secret, auth_method, now, now),
-        )
-        conn.commit()
-
-
-def _store_auth_state(
+async def _store_auth_state(
     state: str,
     user_id: str,
     project_ref: str,
     code_verifier: str,
     authorization_server: str,
 ) -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into mcp_auth_states (
-                state, user_id, project_ref, code_verifier, authorization_server, created_at
-            )
-            values (?, ?, ?, ?, ?, ?)
-            """,
-            (state, user_id, project_ref, code_verifier, authorization_server, _now_iso()),
-        )
-        conn.commit()
+    created_at = _now_iso()
+    insert_auth_state(
+        state=state,
+        user_id=user_id,
+        project_ref=project_ref,
+        code_verifier=code_verifier,
+        authorization_server=authorization_server,
+        created_at=created_at,
+    )
+    await set_cached_auth_state(
+        user_id,
+        state,
+        {
+            "user_id": user_id,
+            "project_ref": project_ref,
+            "code_verifier": code_verifier,
+            "authorization_server": authorization_server,
+            "created_at": created_at,
+        },
+        ttl_seconds=AUTH_STATE_CACHE_TTL_SECONDS,
+    )
 
 
-def _load_auth_state(state: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select user_id, project_ref, code_verifier, authorization_server
-            from mcp_auth_states
-            where state = ?
-            """,
-            (state,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "user_id": row[0],
-            "project_ref": row[1],
-            "code_verifier": row[2],
-            "authorization_server": row[3],
-        }
+def _auth_state_expired(created_at: Optional[str]) -> bool:
+    parsed = _parse_iso(created_at)
+    if not parsed:
+        return True
+    return parsed <= (datetime.now(timezone.utc) - timedelta(seconds=AUTH_STATE_CACHE_TTL_SECONDS))
 
 
-def _delete_auth_state(state: str) -> None:
-    with _connect_db() as conn:
-        conn.execute("delete from mcp_auth_states where state = ?", (state,))
-        conn.commit()
+async def _load_auth_state(state: str, user_id: str) -> Optional[Dict[str, Any]]:
+    cached = await get_cached_auth_state(user_id, state)
+    if cached and not _auth_state_expired(cached.get("created_at")):
+        return cached
+
+    record = fetch_auth_state(state)
+    if not record:
+        return None
+    if _auth_state_expired(record.get("created_at")):
+        delete_auth_state(state)
+        await delete_cached_auth_state(user_id, state)
+        return None
+
+    await set_cached_auth_state(user_id, state, record, ttl_seconds=AUTH_STATE_CACHE_TTL_SECONDS)
+    return record
 
 
-def _store_tokens(
+async def _delete_auth_state(state: str, user_id: str) -> None:
+    delete_auth_state(state)
+    await delete_cached_auth_state(user_id, state)
+
+
+def _tokens_cache_ttl(expires_at: Optional[str]) -> int:
+    parsed = _parse_iso(expires_at)
+    if not parsed:
+        return TOKENS_CACHE_TTL_SECONDS
+    remaining = int((parsed - datetime.now(timezone.utc)).total_seconds())
+    if remaining <= 0:
+        return TOKENS_CACHE_TTL_SECONDS
+    return min(TOKENS_CACHE_TTL_SECONDS, remaining)
+
+
+async def _store_tokens(
     user_id: str,
     project_ref: str,
     access_token: str,
@@ -270,56 +222,41 @@ def _store_tokens(
     scope: Optional[str],
     expires_at: Optional[str],
 ) -> None:
-    with _connect_db() as conn:
-        conn.execute(
-            """
-            insert into mcp_tokens (
-                user_id, project_ref, access_token, refresh_token, token_type, scope, expires_at, updated_at
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?)
-            on conflict(user_id) do update set
-                project_ref = excluded.project_ref,
-                access_token = excluded.access_token,
-                refresh_token = excluded.refresh_token,
-                token_type = excluded.token_type,
-                scope = excluded.scope,
-                expires_at = excluded.expires_at,
-                updated_at = excluded.updated_at
-            """,
-            (
-                user_id,
-                project_ref,
-                access_token,
-                refresh_token,
-                token_type,
-                scope,
-                expires_at,
-                _now_iso(),
-            ),
-        )
-        conn.commit()
+    updated_at = _now_iso()
+    upsert_tokens(
+        user_id=user_id,
+        project_ref=project_ref,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type=token_type,
+        scope=scope,
+        expires_at=expires_at,
+        updated_at=updated_at,
+    )
+    await set_cached_tokens(
+        user_id,
+        {
+            "project_ref": project_ref,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": token_type,
+            "scope": scope,
+            "expires_at": expires_at,
+            "updated_at": updated_at,
+        },
+        ttl_seconds=_tokens_cache_ttl(expires_at),
+    )
 
 
-def _load_tokens(user_id: str) -> Optional[Dict[str, Any]]:
-    with _connect_db() as conn:
-        row = conn.execute(
-            """
-            select project_ref, access_token, refresh_token, token_type, scope, expires_at
-            from mcp_tokens
-            where user_id = ?
-            """,
-            (user_id,),
-        ).fetchone()
-        if not row:
-            return None
-        return {
-            "project_ref": row[0],
-            "access_token": row[1],
-            "refresh_token": row[2],
-            "token_type": row[3],
-            "scope": row[4],
-            "expires_at": row[5],
-        }
+async def _load_tokens(user_id: str) -> Optional[Dict[str, Any]]:
+    cached = await get_cached_tokens(user_id)
+    if cached:
+        return cached
+    record = fetch_tokens(user_id)
+    if not record:
+        return None
+    await set_cached_tokens(user_id, record, ttl_seconds=_tokens_cache_ttl(record.get("expires_at")))
+    return record
 
 
 def _store_metadata(user_id: str, project_ref: str, metadata: Dict[str, Any]) -> None:
@@ -362,16 +299,151 @@ def _has_metadata(user_id: str) -> bool:
     return fetch_metadata(user_id) is not None
 
 
+def _is_transient_event_loop_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "event loop is closed" in message or "event loop closed" in message
+
+
+def _is_job_recent(updated_at: Optional[str], timeout_seconds: int) -> bool:
+    parsed = _parse_iso(updated_at)
+    if not parsed:
+        return False
+    age_seconds = (datetime.now(timezone.utc) - parsed).total_seconds()
+    return age_seconds < timeout_seconds
+
+
+async def _get_cached_or_fetch_metadata(user_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        metadata = await get_cached_metadata(user_id, "metadata")
+    except Exception as exc:
+        logger.warning("Redis metadata cache read failed. user_id=%s err=%s", user_id, exc)
+        metadata = None
+    if metadata:
+        return metadata
+    metadata = fetch_metadata(user_id)
+    if metadata:
+        await set_cached_metadata(user_id, "metadata", metadata)
+    return metadata
+
+
+def enqueue_chart_job(job_id: str, user_id: str, question: str) -> None:
+    if not MCP_CHART_QUEUE_URL:
+        raise RuntimeError("Missing MCP_CHART_QUEUE_URL.")
+    payload = json.dumps({"job_id": job_id, "user_id": user_id, "question": question})
+    _sqs_client.send_message(QueueUrl=MCP_CHART_QUEUE_URL, MessageBody=payload)
+    logger.info("Chart job enqueued. job_id=%s user_id=%s", job_id, user_id)
+
+
+def _serialize_chart_result(result: Any) -> Dict[str, Any]:
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
+    if hasattr(result, "dict"):
+        return result.dict()
+    if isinstance(result, dict):
+        return result
+    raise RuntimeError("Chart job result is not serializable.")
+
+
+async def process_chart_job(job_id: str, user_id: str, question: str) -> None:
+    job = fetch_chart_job(job_id)
+    if job:
+        status = job.get("status")
+        if status == "ready":
+            logger.info("Chart job already ready. job_id=%s", job_id)
+            return
+        if status == "running":
+            if _is_job_recent(job.get("updated_at"), MCP_CHART_JOB_TIMEOUT_SECONDS):
+                logger.info("Chart job already running. job_id=%s", job_id)
+                return
+            upsert_chart_job(
+                job_id,
+                user_id,
+                status="error",
+                error_message="Chart generation timed out. Retry to continue.",
+            )
+            logger.warning("Chart job timed out. job_id=%s", job_id)
+            return
+
+    upsert_chart_job(job_id, user_id, status="running", error_message=None, result_json=None)
+    try:
+        metadata = await _get_cached_or_fetch_metadata(user_id)
+        if not metadata:
+            raise RuntimeError("No database metadata found for user.")
+
+        tokens = await get_valid_tokens(user_id)
+
+        from chart_agent import run_chart_query_agent, run_chart_spec_agent  # noqa: E402
+
+        trace_id = uuid4().hex
+        trace_metadata = {
+            "user_id": user_id,
+            "session_id": None,
+            "project_ref": tokens["project_ref"],
+            "endpoint": "chart job",
+        }
+        query_result = await run_chart_query_agent(
+            question=question,
+            metadata=metadata,
+            access_token=tokens["access_token"],
+            project_ref=tokens["project_ref"],
+            trace_id=trace_id,
+            trace_name="chart job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+        response = await run_chart_spec_agent(
+            question=question,
+            sql=query_result.sql,
+            data=query_result.data,
+            columns=query_result.columns,
+            trace_id=trace_id,
+            trace_name="chart job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+
+        result_payload = _serialize_chart_result(response)
+        upsert_chart_job(
+            job_id,
+            user_id,
+            status="ready",
+            result_json=result_payload,
+            error_message=None,
+        )
+    except Exception as exc:
+        if _is_transient_event_loop_error(exc):
+            upsert_chart_job(job_id, user_id, status="queued", error_message=None)
+            logger.warning("Transient event-loop error; chart job re-queued. job_id=%s", job_id)
+            raise
+        upsert_chart_job(
+            job_id,
+            user_id,
+            status="error",
+            error_message="Chart generation failed. Retry to continue.",
+        )
+        logger.exception("Chart job failed. job_id=%s", job_id)
+        raise
+
+
+async def submit_chart_job(job_id: str, user_id: str, question: str) -> None:
+    if MCP_CHART_MODE == "local":
+        await process_chart_job(job_id, user_id, question)
+        return
+    enqueue_chart_job(job_id, user_id, question)
+
+
 def get_user_metadata(user_id: str) -> Optional[Dict[str, Any]]:
     return fetch_metadata(user_id)
 
 
-def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
-    return _load_tokens(user_id)
+async def get_user_tokens(user_id: str) -> Optional[Dict[str, Any]]:
+    return await _load_tokens(user_id)
 
 
 async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
-    tokens = _load_tokens(user_id)
+    tokens = await _load_tokens(user_id)
     if not tokens:
         logger.warning("MCP tokens not found. user_id=%s", user_id)
         raise RuntimeError("No MCP tokens found for user.")
@@ -392,7 +464,7 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
             expires_at = (
                 datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             ).isoformat()
-        _store_tokens(
+        await _store_tokens(
             user_id=user_id,
             project_ref=tokens["project_ref"],
             access_token=token_data.get("access_token") or tokens["access_token"],
@@ -401,7 +473,7 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
             scope=token_data.get("scope") or tokens.get("scope"),
             expires_at=expires_at,
         )
-        tokens = _load_tokens(user_id) or tokens
+        tokens = await _load_tokens(user_id) or tokens
 
     if not tokens.get("access_token"):
         logger.error("MCP access token missing after refresh. user_id=%s", user_id)
@@ -409,17 +481,17 @@ async def get_valid_tokens(user_id: str) -> Dict[str, Any]:
     return tokens
 
 
-def disconnect_user(user_id: str) -> None:
-    with _connect_db() as conn:
-        conn.execute("delete from mcp_tokens where user_id = ?", (user_id,))
-        conn.execute("delete from mcp_auth_states where user_id = ?", (user_id,))
-        conn.commit()
+async def disconnect_user(user_id: str) -> None:
+    delete_tokens(user_id)
+    delete_auth_states_for_user(user_id)
     delete_metadata(user_id)
+    await clear_cached_tokens(user_id)
+    await clear_cached_auth_states(user_id)
     logger.info("MCP user disconnected and metadata cleared. user_id=%s", user_id)
 
 
-def has_active_connection(user_id: str) -> bool:
-    return _load_tokens(user_id) is not None
+async def has_active_connection(user_id: str) -> bool:
+    return await _load_tokens(user_id) is not None
 
 
 def build_mcp_url(project_ref: str) -> str:
@@ -460,6 +532,95 @@ def _code_challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
 
 
+def enqueue_metadata_job(user_id: str, project_ref: str) -> None:
+    if not MCP_METADATA_QUEUE_URL:
+        raise RuntimeError("Missing MCP_METADATA_QUEUE_URL.")
+    payload = json.dumps({"user_id": user_id, "project_ref": project_ref})
+    _sqs_client.send_message(QueueUrl=MCP_METADATA_QUEUE_URL, MessageBody=payload)
+    logger.info("MCP metadata job enqueued. user_id=%s project_ref=%s", user_id, project_ref)
+
+
+async def process_metadata_job(user_id: str, project_ref: str) -> None:
+    job = fetch_metadata_job(user_id)
+    if job:
+        status = job.get("status")
+        if status == "ready":
+            logger.info("Metadata job already ready. user_id=%s", user_id)
+            return
+        if status == "running":
+            if _is_job_recent(job.get("updated_at"), MCP_METADATA_JOB_TIMEOUT_SECONDS):
+                logger.info("Metadata job already running. user_id=%s", user_id)
+                return
+            upsert_metadata_job(
+                user_id,
+                project_ref,
+                status="error",
+                error_message="Metadata extraction timed out. Retry to continue.",
+            )
+            logger.warning("Metadata job timed out. user_id=%s", user_id)
+            return
+
+    upsert_metadata_job(user_id, project_ref, status="running", error_message=None)
+    try:
+        metadata = await _get_cached_or_fetch_metadata(user_id)
+        if metadata:
+            _store_metadata(user_id, project_ref, metadata)
+            await set_cached_metadata(user_id, "metadata", metadata)
+        else:
+            metadata = await extract_metadata(user_id)
+            _store_metadata(user_id, project_ref, metadata)
+            await set_cached_metadata(user_id, "metadata", metadata)
+        logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
+
+        trace_id = uuid4().hex
+        trace_metadata = {
+            "user_id": user_id,
+            "session_id": None,
+            "project_ref": project_ref,
+            "endpoint": "metadata job",
+        }
+        suggestions = await run_chart_suggestions_agent(
+            metadata=metadata,
+            trace_id=trace_id,
+            trace_name="metadata job",
+            trace_user_id=user_id,
+            trace_session_id=None,
+            trace_metadata=trace_metadata,
+        )
+        _save_suggestions(user_id, suggestions)
+        logger.info("Chart suggestions generated and saved. user_id=%s", user_id)
+
+        upsert_metadata_job(user_id, project_ref, status="ready", error_message=None)
+    except Exception as exc:
+        if _is_transient_event_loop_error(exc):
+            upsert_metadata_job(
+                user_id,
+                project_ref,
+                status="queued",
+                error_message=None,
+            )
+            logger.warning(
+                "Transient event-loop error; job re-queued. user_id=%s", user_id
+            )
+            raise
+
+        upsert_metadata_job(
+            user_id,
+            project_ref,
+            status="error",
+            error_message="Metadata extraction failed. Retry to continue.",
+        )
+        logger.exception("Metadata job failed. user_id=%s", user_id)
+        raise
+
+
+async def submit_metadata_job(user_id: str, project_ref: str) -> None:
+    if MCP_METADATA_MODE == "local":
+        await process_metadata_job(user_id, project_ref)
+        return
+    enqueue_metadata_job(user_id, project_ref)
+
+
 async def create_authorization_url(user_id: str, project_ref: str) -> str:
     project_ref = project_ref.strip()
     if not project_ref:
@@ -473,7 +634,7 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
     verifier = _code_verifier()
     challenge = _code_challenge(verifier)
 
-    _store_auth_state(state, user_id, project_ref, verifier, SUPABASE_OAUTH_AUTHORIZE_URL)
+    await _store_auth_state(state, user_id, project_ref, verifier, SUPABASE_OAUTH_AUTHORIZE_URL)
     logger.info("MCP auth state stored. user_id=%s project_ref=%s", user_id, project_ref)
 
     params = {
@@ -492,7 +653,7 @@ async def create_authorization_url(user_id: str, project_ref: str) -> str:
 
 
 async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
-    auth_state = _load_auth_state(state)
+    auth_state = await _load_auth_state(state, user_id)
     if not auth_state or auth_state["user_id"] != user_id:
         raise ValueError("Invalid or expired OAuth state.")
 
@@ -516,7 +677,7 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
     if expires_in is not None:
         expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
-    _store_tokens(
+    await _store_tokens(
         user_id=user_id,
         project_ref=auth_state["project_ref"],
         access_token=token_data.get("access_token"),
@@ -525,32 +686,16 @@ async def handle_auth_callback(user_id: str, code: str, state: str) -> None:
         scope=token_data.get("scope"),
         expires_at=expires_at,
     )
-    _delete_auth_state(state)
+    await _delete_auth_state(state, user_id)
     logger.info("MCP tokens stored. user_id=%s project_ref=%s", user_id, auth_state["project_ref"])
 
-    metadata = await extract_metadata(user_id)
-    _store_metadata(user_id, auth_state["project_ref"], metadata)
-    logger.info("MCP metadata extracted and stored. user_id=%s", user_id)
-    try:
-        trace_id = uuid4().hex
-        trace_metadata = {
-            "user_id": user_id,
-            "session_id": None,
-            "project_ref": auth_state["project_ref"],
-            "endpoint": "MCP auth callback",
-        }
-        suggestions = await run_chart_suggestions_agent(
-            metadata=metadata,
-            trace_id=trace_id,
-            trace_name="POST mcp/auth/callback",
-            trace_user_id=user_id,
-            trace_session_id=None,
-            trace_metadata=trace_metadata,
-        )
-        _save_suggestions(user_id, suggestions)
-        logger.info("Chart suggestions generated and saved. user_id=%s", user_id)
-    except Exception:
-        logger.exception("Chart suggestions generation failed")
+    upsert_metadata_job(
+        user_id=user_id,
+        project_ref=auth_state["project_ref"],
+        status="queued",
+        error_message=None,
+    )
+    await submit_metadata_job(user_id, auth_state["project_ref"])
 
 
 async def _refresh_access_token(refresh_token: str) -> Dict[str, Any]:
@@ -851,7 +996,7 @@ def _build_metadata(
 
 
 async def extract_metadata(user_id: str) -> Dict[str, Any]:
-    token_info = _load_tokens(user_id)
+    token_info = await _load_tokens(user_id)
     if not token_info:
         raise RuntimeError("No MCP tokens found for user.")
 

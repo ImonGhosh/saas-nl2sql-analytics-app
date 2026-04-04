@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/clerk-react";
 import { BarChart3, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { VisualizationSpec } from "vega-embed";
 import type { LibraryChart } from "./ChartLibrary";
+import { BACKEND_URL } from "../lib/backend";
 
 const VegaLite = dynamic(
   () => import("react-vega").then((mod) => mod.VegaLite),
@@ -25,8 +26,6 @@ type AnalyticsAgentProps = {
   selectedChart?: LibraryChart | null;
 };
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
@@ -49,9 +48,15 @@ export default function AnalyticsAgent({
   const [chartPayload, setChartPayload] = useState<ChartPayload | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [chartJobId, setChartJobId] = useState<string | null>(null);
+  const [chartJobStatus, setChartJobStatus] = useState<
+    "idle" | "queued" | "running" | "ready" | "error"
+  >("idle");
+  const [chartJobError, setChartJobError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const chartTimeoutMs = 6 * 60 * 1000;
 
   const buildChartPayload = (payload: {
     summary?: string;
@@ -80,7 +85,7 @@ export default function AnalyticsAgent({
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/charts/suggestions`, {
+        const response = await fetch(`${BACKEND_URL}/charts/suggestions`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -117,7 +122,114 @@ export default function AnalyticsAgent({
       summary: selectedChart.summary,
       sql: selectedChart.sql,
     });
+    setChartJobId(null);
+    setChartJobStatus("ready");
+    setChartJobError(null);
   }, [selectedChart]);
+
+  useEffect(() => {
+    let isActive = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const pollStatus = async () => {
+      if (!chartJobId) return;
+      if (!["queued", "running"].includes(chartJobStatus)) return;
+
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) return;
+
+        const response = await fetch(
+          `${BACKEND_URL}/charts/query/status?job_id=${encodeURIComponent(
+            chartJobId
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const payload = (await response.json()) as {
+          status?: string;
+          error_message?: string | null;
+          result?: {
+            summary?: string;
+            chart_spec?: VisualizationSpec;
+            data?: Record<string, unknown>[];
+            sql?: string;
+          } | null;
+          detail?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload?.detail || `Request failed (${response.status}).`);
+        }
+
+        const statusValue = (payload.status ?? "queued") as
+          | "queued"
+          | "running"
+          | "ready"
+          | "error";
+        if (!isActive) return;
+        setChartJobStatus(statusValue);
+        setChartJobError(payload.error_message ?? null);
+
+        if (statusValue === "ready") {
+          const parsed = buildChartPayload(payload.result ?? null);
+          if (!parsed) {
+            throw new Error("Chart result missing from response.");
+          }
+          setChartPayload(parsed);
+          setChartInput("");
+        }
+      } catch (error) {
+        if (!isActive) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load chart.";
+        setChartJobStatus("error");
+        setChartJobError(message);
+      }
+    };
+
+    if (chartJobId && ["queued", "running"].includes(chartJobStatus)) {
+      void pollStatus();
+      intervalId = setInterval(pollStatus, 4000);
+    }
+
+    return () => {
+      isActive = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [chartJobId, chartJobStatus, getToken]);
+
+  useEffect(() => {
+    if (!chartJobId || !["queued", "running"].includes(chartJobStatus)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      if (!chartJobId || !["queued", "running"].includes(chartJobStatus)) return;
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (token) {
+          await fetch(`${BACKEND_URL}/charts/query/abort`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ job_id: chartJobId }),
+          });
+        }
+      } finally {
+        setChartJobStatus("error");
+        setChartJobError("Chart generation took too long. Retry to continue.");
+      }
+    }, chartTimeoutMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [chartJobId, chartJobStatus, getToken]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -127,6 +239,8 @@ export default function AnalyticsAgent({
 
     setIsCreating(true);
     setErrorMessage(null);
+    setChartJobError(null);
+    setChartJobStatus("idle");
     setIsSuggestionOpen(false);
     setLastRequest(trimmed);
     setChartPayload(null);
@@ -137,7 +251,7 @@ export default function AnalyticsAgent({
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(`${backendUrl}/charts/query`, {
+      const response = await fetch(`${BACKEND_URL}/charts/query/async`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -148,10 +262,8 @@ export default function AnalyticsAgent({
 
       const payload = (await response.json()) as
         | {
-            summary?: string;
-            chart_spec?: VisualizationSpec;
-            data?: Record<string, unknown>[];
-            sql?: string;
+            job_id?: string;
+            status?: string;
             detail?: string;
           }
         | null;
@@ -161,13 +273,13 @@ export default function AnalyticsAgent({
         throw new Error(detail);
       }
 
-      const parsed = buildChartPayload(payload);
-      if (!parsed) {
-        throw new Error("Chart spec missing from response.");
+      if (!payload?.job_id) {
+        throw new Error("Missing chart job id.");
       }
-
-      setChartPayload(parsed);
-      setChartInput("");
+      setChartJobId(payload.job_id);
+      setChartJobStatus(
+        (payload.status as "queued" | "running" | "ready" | "error") ?? "queued"
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create chart.";
@@ -188,7 +300,7 @@ export default function AnalyticsAgent({
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(`${backendUrl}/charts/library`, {
+      const response = await fetch(`${BACKEND_URL}/charts/library`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -234,6 +346,51 @@ export default function AnalyticsAgent({
       setErrorMessage(message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (!lastRequest || isCreating) return;
+    setChartJobError(null);
+    setChartJobStatus("idle");
+    setChartPayload(null);
+
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch(`${BACKEND_URL}/charts/query/async`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question: lastRequest }),
+      });
+
+      const payload = (await response.json()) as
+        | { job_id?: string; status?: string; detail?: string }
+        | null;
+
+      if (!response.ok) {
+        const detail = payload?.detail || `Request failed (${response.status}).`;
+        throw new Error(detail);
+      }
+
+      if (!payload?.job_id) {
+        throw new Error("Missing chart job id.");
+      }
+      setChartJobId(payload.job_id);
+      setChartJobStatus(
+        (payload.status as "queued" | "running" | "ready" | "error") ?? "queued"
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to retry chart.";
+      setChartJobStatus("error");
+      setChartJobError(message);
     }
   };
 
@@ -288,7 +445,13 @@ export default function AnalyticsAgent({
           </div>
           <button
             type="submit"
-            disabled={!chartInput.trim() || isCreating}
+            disabled={
+              !chartInput.trim() ||
+              isCreating ||
+              (chartJobStatus !== "idle" &&
+                chartJobStatus !== "ready" &&
+                chartJobStatus !== "error")
+            }
             className="h-[44px] rounded-lg bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-6 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#384b77]"
           >
             {isCreating ? (
@@ -313,7 +476,7 @@ export default function AnalyticsAgent({
               <VegaLite
                 spec={{
                   ...chartPayload.spec,
-                  width: "container",
+                  width: 600,
                   height: 360,
                   autosize: { type: "fit", contains: "padding" },
                 }}
@@ -345,21 +508,56 @@ export default function AnalyticsAgent({
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-[#93A4BD]">
-            <BarChart3 className="h-10 w-10 text-[#A7B6CC]" />
-            <p className="text-sm font-semibold">No chart yet</p>
-            <p className="max-w-sm text-sm text-[#93A4BD]">
-              Add a chart request above and click Create to render the analytics chart
-              here.
-            </p>
-            {errorMessage && (
-              <p className="max-w-sm text-sm font-semibold text-red-600">
-                {errorMessage}
-              </p>
-            )}
-            {lastRequest && (
-              <p className="text-xs text-[#93A4BD]">
-                Latest request: <span className="font-medium">{lastRequest}</span>
-              </p>
+            {chartJobStatus === "queued" || chartJobStatus === "running" ? (
+              <>
+                <span
+                  className="h-12 w-12 animate-spin rounded-full border-2 border-[#2a3b5a] border-t-[#7aa2f7]"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-semibold">
+                  Loading your chart, please wait for some time
+                </p>
+                {lastRequest && (
+                  <p className="text-xs text-[#93A4BD]">
+                    Latest request:{" "}
+                    <span className="font-medium">{lastRequest}</span>
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <BarChart3 className="h-10 w-10 text-[#A7B6CC]" />
+                <p className="text-sm font-semibold">No chart yet</p>
+                <p className="max-w-sm text-sm text-[#93A4BD]">
+                  Add a chart request above and click Create to render the analytics
+                  chart here.
+                </p>
+                {errorMessage && (
+                  <p className="max-w-sm text-sm font-semibold text-red-600">
+                    {errorMessage}
+                  </p>
+                )}
+                {chartJobStatus === "error" && (
+                  <>
+                    <p className="max-w-sm text-sm font-semibold text-red-600">
+                      {chartJobError || "Chart generation failed. Retry to continue."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]"
+                    >
+                      Retry
+                    </button>
+                  </>
+                )}
+                {lastRequest && (
+                  <p className="text-xs text-[#93A4BD]">
+                    Latest request:{" "}
+                    <span className="font-medium">{lastRequest}</span>
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

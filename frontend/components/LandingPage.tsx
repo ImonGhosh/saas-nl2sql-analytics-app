@@ -6,7 +6,7 @@ import {
   SignedOut,
   UserButton,
   useAuth,
-} from "@clerk/nextjs";
+} from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { VisualizationSpec } from "vega-embed";
@@ -16,9 +16,8 @@ import ConversationsBar, {
 } from "./ConversationsBar";
 import SqlChatbot from "./SqlChatbot";
 import AnalyticsAgent from "./AnalyticsAgent";
+import { BACKEND_URL } from "../lib/backend";
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
 const clerkJwtTemplate =
   process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE ?? "backend";
 
@@ -33,6 +32,8 @@ export default function LandingPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [metadataStatus, setMetadataStatus] = useState("missing");
+  const [metadataErrorMessage, setMetadataErrorMessage] = useState("");
   const [libraryCharts, setLibraryCharts] = useState<LibraryChart[]>([]);
   const [selectedChart, setSelectedChart] = useState<LibraryChart | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -75,21 +76,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     const status = searchParams.get("mcp");
-    if (status !== "ready") return;
-
-    setIsModalOpen(true);
-    setConnectStatus("Ready");
-    setConnectError("");
-    setIsConnecting(false);
-
-    const timer = window.setTimeout(() => {
-      closeModal();
-      const url = new URL(window.location.href);
-      url.searchParams.delete("mcp");
-      window.history.replaceState({}, "", url.toString());
-    }, 800);
-
-    return () => window.clearTimeout(timer);
+    if (!status) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mcp");
+    window.history.replaceState({}, "", url.toString());
   }, [searchParams]);
 
   useEffect(() => {
@@ -100,6 +90,8 @@ export default function LandingPage() {
         if (isActive) {
           setIsConnected(false);
           setIsStatusLoading(true);
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
         }
         return;
       }
@@ -108,6 +100,8 @@ export default function LandingPage() {
         if (isActive) {
           setIsConnected(false);
           setIsStatusLoading(false);
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
         }
         return;
       }
@@ -124,7 +118,7 @@ export default function LandingPage() {
           return;
         }
 
-        const response = await fetch(`${backendUrl}/mcp/status`, {
+        const response = await fetch(`${BACKEND_URL}/mcp/status`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -153,16 +147,86 @@ export default function LandingPage() {
 
   useEffect(() => {
     let isActive = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const fetchMetadataStatus = async () => {
+      if (!isLoaded || !isSignedIn || !isConnected) {
+        if (isActive) {
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
+        }
+        return;
+      }
+
+      try {
+        const token = await getToken({ template: clerkJwtTemplate });
+        if (!token) {
+          if (isActive) {
+            setMetadataStatus("missing");
+            setMetadataErrorMessage("");
+          }
+          return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/mcp/metadata/status`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (isActive) {
+            setMetadataStatus("missing");
+            setMetadataErrorMessage("");
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          status?: string;
+          error_message?: string | null;
+        };
+        if (isActive) {
+          setMetadataStatus(payload.status ?? "missing");
+          setMetadataErrorMessage(payload.error_message ?? "");
+        }
+      } catch {
+        if (isActive) {
+          setMetadataStatus("missing");
+          setMetadataErrorMessage("");
+        }
+      }
+    };
+
+    void fetchMetadataStatus();
+
+    if (isLoaded && isSignedIn && isConnected) {
+      intervalId = setInterval(fetchMetadataStatus, 4000);
+    }
+
+    return () => {
+      isActive = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [getToken, isConnected, isSignedIn, isLoaded]);
+
+  useEffect(() => {
+    let isActive = true;
 
     const loadLibrary = async () => {
-      if (!isConnected || activeTab !== "analytics" || !isSignedIn) {
+      if (
+        !isConnected ||
+        metadataStatus !== "ready" ||
+        activeTab !== "analytics" ||
+        !isSignedIn
+      ) {
         return;
       }
       try {
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/charts/library`, {
+        const response = await fetch(`${BACKEND_URL}/charts/library`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -198,13 +262,18 @@ export default function LandingPage() {
     return () => {
       isActive = false;
     };
-  }, [getToken, isConnected, activeTab, isSignedIn]);
+  }, [getToken, isConnected, metadataStatus, activeTab, isSignedIn]);
 
   useEffect(() => {
     let isActive = true;
 
     const loadConversations = async () => {
-      if (!isConnected || activeTab !== "sql" || !isSignedIn) {
+      if (
+        !isConnected ||
+        metadataStatus !== "ready" ||
+        activeTab !== "sql" ||
+        !isSignedIn
+      ) {
         if (isActive) {
           setConversations([]);
           setActiveConversation(null);
@@ -215,7 +284,7 @@ export default function LandingPage() {
         const token = await getToken({ template: clerkJwtTemplate });
         if (!token) return;
 
-        const response = await fetch(`${backendUrl}/sql/conversations`, {
+        const response = await fetch(`${BACKEND_URL}/sql/conversations`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -262,7 +331,7 @@ export default function LandingPage() {
     return () => {
       isActive = false;
     };
-  }, [getToken, isConnected, activeTab, isSignedIn]);
+  }, [getToken, isConnected, metadataStatus, activeTab, isSignedIn]);
 
   const handleDisconnect = async () => {
     try {
@@ -271,7 +340,7 @@ export default function LandingPage() {
         return;
       }
 
-      await fetch(`${backendUrl}/mcp/disconnect`, {
+      await fetch(`${BACKEND_URL}/mcp/disconnect`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -279,6 +348,8 @@ export default function LandingPage() {
       });
     } finally {
       setIsConnected(false);
+      setMetadataStatus("missing");
+      setMetadataErrorMessage("");
       setLibraryCharts([]);
       setSelectedChart(null);
       setConversations([]);
@@ -298,7 +369,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/sql/conversations/${encodeURIComponent(
+        `${BACKEND_URL}/sql/conversations/${encodeURIComponent(
           conversation.sessionId
         )}`,
         {
@@ -330,7 +401,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/charts/library/${encodeURIComponent(chart.savedAt)}`,
+        `${BACKEND_URL}/charts/library/${encodeURIComponent(chart.savedAt)}`,
         {
           method: "DELETE",
           headers: {
@@ -370,12 +441,18 @@ export default function LandingPage() {
   };
 
   const refreshConversations = async () => {
-    if (!isConnected || activeTab !== "sql" || !isSignedIn) return;
+    if (
+      !isConnected ||
+      metadataStatus !== "ready" ||
+      activeTab !== "sql" ||
+      !isSignedIn
+    )
+      return;
     try {
       const token = await getToken({ template: clerkJwtTemplate });
       if (!token) return;
 
-      const response = await fetch(`${backendUrl}/sql/conversations`, {
+      const response = await fetch(`${BACKEND_URL}/sql/conversations`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -417,6 +494,38 @@ export default function LandingPage() {
     }
   };
 
+  const handleMetadataRetry = async () => {
+    if (metadataStatus !== "error") return;
+    setMetadataStatus("queued");
+    setMetadataErrorMessage("");
+
+    try {
+      const token = await getToken({ template: clerkJwtTemplate });
+      if (!token) {
+        setMetadataStatus("error");
+        setMetadataErrorMessage("Authentication required.");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/mcp/metadata/retry`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(text || `Request failed (${response.status})`);
+      }
+    } catch (error) {
+      setMetadataStatus("error");
+      setMetadataErrorMessage(
+        error instanceof Error ? error.message : "Retry failed."
+      );
+    }
+  };
+
   const handleSelectConversation = async (
     conversation: ConversationSummary
   ) => {
@@ -425,7 +534,7 @@ export default function LandingPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${backendUrl}/sql/conversations/${encodeURIComponent(
+        `${BACKEND_URL}/sql/conversations/${encodeURIComponent(
           conversation.sessionId
         )}`,
         {
@@ -451,29 +560,33 @@ export default function LandingPage() {
 
       const sessionId = payload.session_id ?? conversation.sessionId;
       const messages = Array.isArray(payload.messages)
-        ? payload.messages
-            .map((message) => {
+        ? payload.messages.map(
+            (message): {
+              role: "user" | "assistant";
+              content: string;
+              timestamp?: string;
+              sql?: string;
+            } | null => {
               if (!message.role || !message.content) return null;
               return {
                 role: message.role,
                 content: message.content,
-                timestamp: message.timestamp,
-                sql: message.sql,
+                ...(message.timestamp != null ? { timestamp: message.timestamp } : {}),
+                ...(message.sql != null ? { sql: message.sql } : {}),
               };
-            })
-            .filter(
-              (
-                message
-              ): message is {
-                role: "user" | "assistant";
-                content: string;
-                timestamp?: string;
-                sql?: string;
-              } => message !== null
-            )
+            }
+          )
         : [];
+      const safeMessages = messages.filter(
+        (message): message is {
+          role: "user" | "assistant";
+          content: string;
+          timestamp?: string;
+          sql?: string;
+        } => message !== null
+      );
 
-      setActiveConversation({ sessionId, messages });
+      setActiveConversation({ sessionId, messages: safeMessages });
     } catch {
       setActiveConversation(null);
     }
@@ -493,7 +606,7 @@ export default function LandingPage() {
       }
 
       setConnectStatus("Authorizing...");
-      const response = await fetch(`${backendUrl}/mcp/auth/start`, {
+      const response = await fetch(`${BACKEND_URL}/mcp/auth/start`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -547,7 +660,7 @@ export default function LandingPage() {
       <SignedOut>
         <section className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-6 text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-tight text-[#E5ECF5] md:text-7xl">
-            Supa-Connect : AI Powered SQL &amp; Analytics
+            Supa-Connect :<br /> AI Powered SQL &amp; Visual Analytics
           </h1>
           <SignInButton mode="modal">
             <button className="mt-8 rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-8 py-3 text-base font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]">
@@ -567,6 +680,44 @@ export default function LandingPage() {
             © {new Date().getFullYear()} Supa-Connect. All rights reserved.
           </p>
         </section>
+      </SignedOut>
+      <SignedOut>
+        <div className="fixed bottom-2 right-4 z-20 sm:bottom-6 sm:right-8">
+          <a
+            href="https://www.flaticon.com/free-icons/analysis"
+            title="analysis icons"
+            target="_blank"
+            rel="noreferrer"
+            className="block"
+            aria-label="Analysis icons created by Freepik - Flaticon"
+          >
+            <img
+              src="/analysis-icon.svg"
+              alt="Analysis icon"
+              className="h-32 w-32 opacity-90 transition hover:opacity-100 sm:h-40 sm:w-40"
+              loading="lazy"
+            />
+          </a>
+        </div>
+      </SignedOut>
+      <SignedOut>
+        <div className="fixed bottom-2 left-4 z-20 sm:bottom-6 sm:left-8">
+          <a
+            href="https://www.flaticon.com/free-icons/database"
+            title="database icons"
+            target="_blank"
+            rel="noreferrer"
+            className="block"
+            aria-label="Database icons created by Freepik - Flaticon"
+          >
+            <img
+              src="/database-icon.svg"
+              alt="Database icon"
+              className="h-32 w-32 opacity-90 transition hover:opacity-100 sm:h-40 sm:w-40"
+              loading="lazy"
+            />
+          </a>
+        </div>
       </SignedOut>
 
       <SignedIn>
@@ -614,7 +765,34 @@ export default function LandingPage() {
                 </div>
               </div>
             ) : isConnected ? (
-              activeTab === "sql" ? (
+              metadataStatus !== "ready" ? (
+                <div className="mt-10 rounded-2xl border border-dashed border-[#2a3b5a] bg-[#14223a]/85 px-6 py-16 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3 text-[#A7B6CC]">
+                    <span
+                      className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3b5a] border-t-[#7aa2f7]"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm font-semibold">
+                      Extracting metadata...
+                    </p>
+                    {metadataStatus === "error" ? (
+                      <>
+                        <p className="text-sm font-semibold text-red-500">
+                          {metadataErrorMessage ||
+                            "Metadata extraction failed. Retry to continue."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleMetadataRetry}
+                          className="rounded-md bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#2563EB] hover:to-[#1D4ED8]"
+                        >
+                          Retry
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : activeTab === "sql" ? (
                 <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-start">
                   <div className="w-full max-w-4xl rounded-2xl border border-[#2a3b5a] bg-[#14223a]/90 px-6 py-8 text-left shadow-[0_22px_44px_-28px_rgba(8,12,20,0.65)]">
                     <SqlChatbot
