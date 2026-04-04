@@ -1,4 +1,4 @@
-# Supa-Connect : AI Powered SQL and Visual Analytics Platform
+# Supa-Connect : AI Powered SQL and Visual Analytics
 
 A production-oriented natural-language analytics platform that lets users connect their own Supabase database, ask questions in plain English, generate SQL automatically, derive AI-assisted insights, and render professional charts from the underlying query results.
 
