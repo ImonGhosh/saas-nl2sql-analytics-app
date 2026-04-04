@@ -1,4 +1,4 @@
-# SaaS NL2SQL Analytics Platform
+# Supa-Connect : AI Powered SQL and Visual Analytics Platform
 
 A production-oriented natural-language analytics platform that lets users connect their own Supabase database, ask questions in plain English, generate SQL automatically, derive AI-assisted insights, and render professional charts from the underlying query results.
 
@@ -13,22 +13,6 @@ The platform is designed for both technical and non-technical users. It prioriti
 - Personal chart library for reusable visual outputs
 - Transparent SQL output for every generated insight or chart
 - User-scoped data isolation for memory, charts, metadata, and tokens
-
-## Product Flow
-
-1. A user signs into the application with Clerk.
-2. The user connects their own Supabase project through Supabase OAuth.
-3. The application receives an access token after consent is granted.
-4. That authorized connection is used through MCP to:
-   - extract database metadata
-   - execute SQL safely
-   - support the SQL and analytics agents with live schema context
-5. Metadata extraction triggers automated KPI and chart suggestions.
-6. The user interacts with:
-   - the SQL Agent for question-to-SQL workflows
-   - the Analytics Agent for question-to-visualization workflows
-7. Conversations, chart suggestions, and saved charts are persisted in user-scoped storage.
-8. When the user disconnects their database, metadata and related user data are deleted and database-backed agents are no longer accessible.
 
 ## Application Functional Workflow
 
@@ -264,5 +248,3 @@ This architecture is designed to balance usability, transparency, and operationa
 ## Current State
 
 This repository already contains the core application code, Terraform infrastructure, GitHub Actions deployment workflows, and Lambda packaging/deployment assets required to operate the platform in AWS.
-
-The root `README.md` is intended to be the primary GitHub entry point for the full system. The `frontend/README.md` remains the default package-level placeholder from Next.js scaffolding.
