@@ -21,6 +21,7 @@ Access LIVE App here - https://d3bgm1sor0pojd.cloudfront.net/
 The diagram below shows the high-level functional workflow of the application, from user authentication and Supabase connection through metadata extraction, SQL generation, chart creation, and user-scoped persistence.
 
 ![](./diagrams/user-workflow.png)
+![](./diagrams/production-deployment-architecture.png)
 
 ## OAuth and MCP
 
