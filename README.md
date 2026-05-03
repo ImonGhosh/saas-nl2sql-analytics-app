@@ -152,7 +152,7 @@ Examples visible in the infrastructure configuration include:
 
 The diagram below shows the production deployment architecture for the platform across CloudFront, S3, API Gateway, Lambda, SQS, caching, persistence, and observability layers.
 
-![](./diagrams/production-deployment-architecture.png)
+![](./diagrams/production-deployment-architecture-new.png)
 
 ### AWS Components
 
